@@ -1,4 +1,4 @@
-# music2video Overview
+# MetaMusic Overview
 
 A repo for making a AI-generated music video from any song with Wav2CLIP and VQGAN-CLIP. 
 
@@ -7,15 +7,6 @@ The CLIP embedding for audio was derived from [Wav2CLIP](https://github.c+om/des
 
 A technical paper describing the mechanism is provide in the following link: [Music2Video: Automatic Generation of Music Video with fusion of audio and text](https://arxiv.org/abs/2201.03809v2)
 
-The citation for the technical paper is provided below:
-```bibtex
-@article{jang2022music2video,
-  title={Music2Video: Automatic Generation of Music Video with fusion of audio and text},
-  author={Jang, Joel and Shin, Sumin and Kim, Yoonjeon},
-  journal={arXiv preprint arXiv:2201.03809},
-  year={2022}
-}
-```
 
 ## Sample
 
