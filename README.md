@@ -1,46 +1,42 @@
-# MetaMusic Overview
+# MetaMusic 概述
 
-A repo for making a AI-generated music video from any song with Wav2CLIP and VQGAN-CLIP. 
+这是一个使用Wav2CLIP和VQGAN-CLIP从任何歌曲中生成人工智能音乐视频和图片的项目。
 
-The base code was derived from [VQGAN-CLIP](https://github.com/nerdyrodent/VQGAN-CLIP)
-The CLIP embedding for audio was derived from [Wav2CLIP](https://github.c+om/descriptinc/lyrebird-wav2clip)
+基本代码使用了[VQGAN-CLIP](https://github.com/nerdyrodent/VQGAN-CLIP)，音频的CLIP嵌入则使用了[Wav2CLIP](https://github.com/descriptinc/lyrebird-wav2clip)。
 
-A technical paper describing the mechanism is provide in the following link: [Music2Video: Automatic Generation of Music Video with fusion of audio and text](https://arxiv.org/abs/2201.03809v2)
-
-
-## Sample
+有关此机制的技术论文，请参阅以下链接：[Music2Video: Automatic Generation of Music Video with fusion of audio and text](https://arxiv.org/abs/2201.03809v2)
 
 
-You can make one with your own song too!
+## 使用教程
 
-## Set up
+由于此模型代码可能需要一些时间，并且可能存在兼容性问题，配置可能不会很顺利，请谨慎操作，祝你成功！
 
-This example uses [Anaconda](https://www.anaconda.com/products/individual#Downloads) to manage virtual Python environments.
+此示例使用[Anaconda](https://www.anaconda.com/products/individual#Downloads)管理虚拟Python环境。
 
-Create a new virtual Python environment for VQGAN-CLIP:
+为VQGAN-CLIP创建一个新的虚拟Python环境：
 
 ```sh
-conda create --name vqgan python=3.9
-conda activate vqgan
+conda create --name metamusic python=3.9
+conda activate metamusic
 ```
 
-Install Pytorch in the new enviroment:
+在新环境中安装Pytorch：
 
-Note: This installs the CUDA version of Pytorch, if you want to use an AMD graphics card, read the [AMD section below](#using-an-amd-graphics-card).
+注意：这将安装Pytorch的CUDA版本，如果您要使用AMD显卡，请阅读下面的[AMD部分](#using-an-amd-graphics-card)。
 
 ```sh
 pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
-Install other required Python packages:
+安装其他所需的Python包：
 
 ```sh
 pip install ftfy regex tqdm omegaconf pytorch-lightning IPython kornia imageio imageio-ffmpeg einops torch_optimizer wav2clip
 ```
 
-Or use the ```requirements.txt``` file, which includes version numbers.
+或者使用包含版本号的```requirements.txt```文件进行安装。
 
-Clone required repositories:
+克隆所需的存储库：
 
 ```sh
 git clone 'https://github.com/nerdyrodent/VQGAN-CLIP'
@@ -49,11 +45,11 @@ git clone 'https://github.com/openai/CLIP'
 git clone 'https://github.com/CompVis/taming-transformers'
 ```
 
-Note: In my development environment both CLIP and taming-transformers are present in the local directory, and so aren't present in the `requirements.txt` or `vqgan.yml` files.
+注意：在我的开发环境中，CLIP和taming-transformers都存在于本地目录中，因此在`requirements.txt`或`vqgan.yml`文件中不包含它们。
 
-As an alternative, you can also pip install taming-transformers and CLIP.
+作为替代，您还可以使用pip安装taming-transformers和CLIP。
 
-You will also need at least 1 VQGAN pretrained model. E.g.
+您还需要至少一个预训练的VQGAN模型。例如：
 
 ```sh
 mkdir checkpoints
@@ -61,40 +57,40 @@ mkdir checkpoints
 curl -L -o checkpoints/vqgan_imagenet_f16_16384.yaml -C - 'https://heibox.uni-heidelberg.de/d/a7530b09fed84f80a887/files/?p=%2Fconfigs%2Fmodel.yaml&dl=1' #ImageNet 16384
 curl -L -o checkpoints/vqgan_imagenet_f16_16384.ckpt -C - 'https://heibox.uni-heidelberg.de/d/a7530b09fed84f80a887/files/?p=%2Fckpts%2Flast.ckpt&dl=1' #ImageNet 16384
 ```
-Note that users of ```curl``` on Microsoft Windows should use double quotes.
+请注意，使用Microsoft Windows上的```curl```命令时，应使用双引号。
 
-The `download_models.sh` script is an optional way to download a number of models. By default, it will download just 1 model.
+`download_models.sh`脚本是下载多个模型的可选方式。默认情况下，它只会下载一个模型。
 
-See <https://github.com/CompVis/taming-transformers#overview-of-pretrained-models> for more information about VQGAN pre-trained models, including download links.
+有关VQGAN预训练模型的更多信息，包括下载链接，请参阅<https://github.com/CompVis/taming-transformers#overview-of-pretrained-models>。
 
-By default, the model .yaml and .ckpt files are expected in the `checkpoints` directory.
-See <https://github.com/CompVis/taming-transformers> for more information on datasets and models.
+默认情况下，期望将模型.yaml和.ckpt文件放在`checkpoints`目录中。
+有关数据集和模型的更多信息，请参阅<https://github.com/CompVis/taming-transformers>。
 
-## Making the music video
+## 制作音乐视频
 
-To generate video from music, please specify your music and the following code examples can be used depending on the need. We provide a sample music file & lyrics file from Yannic Kilcher's [repo](https://github.com/yk/clip_music_video). 
+要从音乐生成视频，请指定您的音乐，并根据需要使用以下代码示例。我们提供了来自Yannic Kilcher的[repo](https://github.com/yk/clip_music_video)中的示例音乐文件和歌词文件。
 
-If you have a lyrics file with time-stamp information such as the example in 'lyrics/imagenet_song_lyrics.csv', you can make a lyrics-audio guided music video with the following command:
+如果您有一个带有时间戳信息的歌词文件，例如'lyrics/imagenet_song_lyrics.csv'中的示例，您可以使用以下命令创建一个歌词音频引导的音乐视频：
 
 ```sh
 python generate.py -vid -o outputs/output.png -ap "imagenet_song.mp3" -lyr "lyrics/imagenet_song_lyrics.csv" -gid 2 -ips 100
 ```
 
-To interpolate between audio representation and text representation, use to following code (gives a more "music video" feeling) 
+要在音频表示和文本表示之间插值，使用以下代码（更具有“音乐视频”感觉）：
 
 ```sh
 python generate_interpolate.py -vid -ips 100 -o outputs/output.png -ap "imagenet_song.mp3" -lyr "lyrics/imagenet_song_lyrics.csv" -gid 0
 ```
 
-If you do not have lyrics information, you can run the following command using only audio prompts:
+如果您没有歌词信息，可以使用仅音频提示运行以下命令：
 
 ```sh
 python generate.py -vid -o outputs/output.png -ap "imagenet_song.mp3" -gid 2 -ips 100
 ```
 
-If there was an error with any of the above commands during merging of the video segments, please use combine_mp4.py to separately concat the video segments from the output directory or download the video segments from output directory and manually merge them using video editing software.
+如果在合并视频片段的过程中出现任何错误，请使用combine_mp4.py从输出目录单独连接视频片段，或者从输出目录下载视频片段，并使用视频编辑软件手动合并。
 
-## Citations
+## 引用
 
 ```bibtex
 @misc{unpublished2021clip,

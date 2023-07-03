@@ -330,7 +330,7 @@ def generate(
     clip_model: str = "ViT-B/32",
     vqgan_config: str = f"checkpoints/vqgan_imagenet_f16_16384.yaml",
     vqgan_checkpoint: str = f"checkpoints/vqgan_imagenet_f16_16384.ckpt",
-    learningrate: float = 0.2,
+    learningrate: float = 0.1,
     cut_method: str = "latest",
     num_cuts: int = 32,
     cut_power: float = 1.0,

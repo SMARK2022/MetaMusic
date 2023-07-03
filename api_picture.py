@@ -60,7 +60,7 @@ def clean_file_name(filename:str):
 
 def generate(
     filemusic: str,
-    n_iteration: int = 100,
+    n_iteration: int = 80,
     audio_sampling_freq: int = 16000,
     display_freq: int = 10,
     size: Union[int, int] = [default_image_size, default_image_size],
