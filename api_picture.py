@@ -15,6 +15,7 @@ import argparse
 import math
 import time
 from typing import Any, Union, List
+import re
 
 # from email.policy import default
 from urllib.request import urlopen
@@ -52,6 +53,10 @@ elif (
     print("Warning: GPU VRAM is less than 8GB.")
     default_image_size = 368  # <8GB VRAM
 
+def clean_file_name(filename:str):
+    invalid_chars='[\\\/:*?"<>|]'
+    replace_char='-'
+    return re.sub(invalid_chars,replace_char,filename)
 
 def generate(
     filemusic: str,
@@ -142,8 +147,9 @@ def generate(
             os.remove(workplace + "/" + file)
 
     # Make steps directory
-    if not os.path.exists(f"./{calc_device}"):
-        os.mkdir(f"./{calc_device}")
+    steps_folder=clean_file_name(f"./{calc_device}")
+    if not os.path.exists(steps_folder):
+        os.mkdir(steps_folder)
 
     # Fallback to CPU if CUDA is not found and make sure GPU video rendering is also disabled
     # NB. May not work for AMD cards?
@@ -806,8 +812,8 @@ def generate(
             )[:, :, :]
             img = np.transpose(img, (1, 2, 0))
             z.copy_(z.maximum(z_min).minimum(z_max))
-            imageio.imwrite(f"./{calc_device}/" + str(i) + ".png", np.array(img))
-            return f"./{calc_device}/" + str(i) + ".png"
+            imageio.imwrite(f"{steps_folder}/" + str(i) + ".png", np.array(img))
+            return f"{steps_folder}/" + str(i) + ".png"
 
     # Loading the models & Getting total video length
     wav2clip_model = wav2clip.get_model()
