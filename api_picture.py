@@ -791,6 +791,11 @@ def generate(
             loss_trans = torch.dot(minus, minus) / minus.shape[0] * 4 * transrate
             result.append(loss_trans)
 
+        img = np.array(
+        out.mul(255).clamp(0, 255)[0].cpu().detach().numpy().astype(np.uint8)
+        )[:, :, :]
+        img = np.transpose(img, (1, 2, 0))
+        imageio.imwrite(f"{steps_folder}/" + str(i) + ".png", np.array(img))
         return result  # return loss
 
     def train(i):
@@ -806,14 +811,8 @@ def generate(
 
         # with torch.no_grad():
         with torch.inference_mode():
-            out = synth(z)
-            img = np.array(
-                out.mul(255).clamp(0, 255)[0].cpu().detach().numpy().astype(np.uint8)
-            )[:, :, :]
-            img = np.transpose(img, (1, 2, 0))
             z.copy_(z.maximum(z_min).minimum(z_max))
-            imageio.imwrite(f"{steps_folder}/" + str(i) + ".png", np.array(img))
-            return f"{steps_folder}/" + str(i) + ".png"
+        return f"{steps_folder}/" + str(i) + ".png"
 
     # Loading the models & Getting total video length
     wav2clip_model = wav2clip.get_model()
