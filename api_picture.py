@@ -59,7 +59,7 @@ def generate(
     audio_sampling_freq: int = 16000,
     display_freq: int = 10,
     size: Union[int, int] = [default_image_size, default_image_size],
-    calc_device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    calc_device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
     init_image: str = None,
     init_noise: str = None,
     clip_model: str = "ViT-B/32",
@@ -466,7 +466,7 @@ def generate(
                             contrast=0.1,
                             saturation=0.1,
                             hue=0.1,
-                            p=0.7,
+                            p=0.7
                         )
                     )
                 elif item == "Sh":
@@ -800,19 +800,19 @@ def generate(
 
         # with torch.no_grad():
         with torch.inference_mode():
-            z.copy_(z.maximum(z_min).minimum(z_max))
             out = synth(z)
             img = np.array(
                 out.mul(255).clamp(0, 255)[0].cpu().detach().numpy().astype(np.uint8)
             )[:, :, :]
             img = np.transpose(img, (1, 2, 0))
+            z.copy_(z.maximum(z_min).minimum(z_max))
             imageio.imwrite(f"./{calc_device}/" + str(i) + ".png", np.array(img))
             return f"./{calc_device}/" + str(i) + ".png"
 
     # Loading the models & Getting total video length
     wav2clip_model = wav2clip.get_model()
     audio, sr = librosa.load(filemusic, sr=audio_sampling_freq)
-    
+
     # Randomly initializing seed in each video clip
     if seed == None:
         seed = torch.seed()

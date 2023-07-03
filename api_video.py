@@ -246,79 +246,79 @@ elif (
 #     default=10,
 #     dest="video_length",
 # )
-vq_parser.add_argument(
-    "-ofps",
-    "--output_video_fps",
-    type=float,
-    help="Create an interpolated video (Nvidia GPU only) with this fps (min 10. best set to 30 or 60)",
-    default=0,
-    dest="output_video_fps",
-)
-vq_parser.add_argument(
-    "-d",
-    "--deterministic",
-    action="store_true",
-    help="Enable cudnn.deterministic?",
-    dest="cudnn_determinism",
-)
-vq_parser.add_argument(
-    "-aug",
-    "--augments",
-    nargs="+",
-    action="append",
-    type=str,
-    choices=["Ji", "Sh", "Gn", "Pe", "Ro", "Af", "Et", "Ts", "Cr", "Er", "Re"],
-    help="Enabled augments (latest vut method only)",
-    default=[],
-    dest="augments",
-)
-vq_parser.add_argument(
-    "-cd",
-    "--cuda_device",
-    type=str,
-    help="Cuda device to use",
-    default="cuda:0",
-    dest="cuda_device",
-)
-vq_parser.add_argument(
-    "-ap", "--audio_prompt", type=str, default=None, dest="audio_prompt"
-)
-vq_parser.add_argument("-lyr", "--lyrics", type=str, default=None, dest="lyrics")
-vq_parser.add_argument(
-    "-sf", "--audio_sampling_freq", type=int, default=16000, dest="audio_sampling_freq"
-)
-vq_parser.add_argument("-gid", "--gpu_id", type=str, default=0, dest="gpu_id")
+# vq_parser.add_argument(
+#     "-ofps",
+#     "--output_video_fps",
+#     type=float,
+#     help="Create an interpolated video (Nvidia GPU only) with this fps (min 10. best set to 30 or 60)",
+#     default=0,
+#     dest="output_video_fps",
+# )
+# vq_parser.add_argument(
+#     "-d",
+#     "--deterministic",
+#     action="store_true",
+#     help="Enable cudnn.deterministic?",
+#     dest="cudnn_determinism",
+# )
+# vq_parser.add_argument(
+#     "-aug",
+#     "--augments",
+#     nargs="+",
+#     action="append",
+#     type=str,
+#     choices=["Ji", "Sh", "Gn", "Pe", "Ro", "Af", "Et", "Ts", "Cr", "Er", "Re"],
+#     help="Enabled augments (latest vut method only)",
+#     default=[],
+#     dest="augments",
+# )
+# vq_parser.add_argument(
+#     "-cd",
+#     "--cuda_device",
+#     type=str,
+#     help="Cuda device to use",
+#     default="cuda:0",
+#     dest="cuda_device",
+# )
+# vq_parser.add_argument(
+#     "-ap", "--audio_prompt", type=str, default=None, dest="audio_prompt"
+# )
+# vq_parser.add_argument("-lyr", "--lyrics", type=str, default=None, dest="lyrics")
+# vq_parser.add_argument(
+#     "-sf", "--audio_sampling_freq", type=int, default=16000, dest="audio_sampling_freq"
+# )
+# vq_parser.add_argument("-gid", "--gpu_id", type=str, default=0, dest="gpu_id")
 
-vq_parser.add_argument(
-    "-tr",
-    "--trans_rate",
-    type=float,
-    help="Transform rate",
-    default=1,
-    dest="transrate",
-)
+# vq_parser.add_argument(
+#     "-tr",
+#     "--trans_rate",
+#     type=float,
+#     help="Transform rate",
+#     default=1,
+#     dest="transrate",
+# )
 
-vq_parser.add_argument(
-    "-ti",
-    "--trans_image",
-    type=str,
-    help="Transform image input",
-    default="None",
-    dest="usr_img_path",
-)
+# vq_parser.add_argument(
+#     "-ti",
+#     "--trans_image",
+#     type=str,
+#     help="Transform image input",
+#     default="None",
+#     dest="usr_img_path",
+# )
 
 
 # Execute the parse_args() method
-args = vq_parser.parse_args()
+# args = vq_parser.parse_args()
 
 
 def generate(
     filemusic: str,
     video_output: str,
     iterations_per_second: int = 30,
-    output_video_fps: int = 0,
+    output_video_fps: float = 0,
     audio_sampling_freq: int = 16000,
-    display_freq: int = 20,
+    display_freq: int = 10,
     size: Union[int, int] = [default_image_size, default_image_size],
     calc_device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
     init_image: str = None,
@@ -340,8 +340,6 @@ def generate(
     transimg: str = None,
 ):
     # Setting gpu id to use
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
-    device = torch.device(args.cuda_device)
 
     # pip install taming-transformers doesn't work with Gumbel, but does not yet work with coco etc
     # appending the path does work with Gumbel, but gives ModuleNotFoundError: No module named 'transformers' for coco etc
@@ -358,11 +356,8 @@ def generate(
     # if not args.prompts and not args.image_prompts:
     #    args.prompts = "A cute, smiling, Nerdy Rodent"
 
-    if args.cudnn_determinism:
-        torch.backends.cudnn.deterministic = True
-
-    if not args.augments:
-        args.augments = [["Af", "Pe", "Ji", "Er"]]
+    if not augments:
+        augments = [["Af", "Pe", "Ji", "Er"]]
 
     # Clean up
     # input(">> Cleanup the output folder?(Press ENTER to continue)")
@@ -393,15 +388,12 @@ def generate(
     #     args.image_prompts = args.image_prompts.split("|")
     #     args.image_prompts = [image.strip() for image in args.image_prompts]
 
-    # Make video steps directory
-    if not os.path.exists(f"./gpu{args.gpu_id}"):
-        os.mkdir(f"./gpu{args.gpu_id}")
-
     # Fallback to CPU if CUDA is not found and make sure GPU video rendering is also disabled
     # NB. May not work for AMD cards?
-    if not args.cuda_device == "cpu" and not torch.cuda.is_available():
-        args.cuda_device = "cpu"
-        args.video_fps = 0
+    calc_device = torch.device(calc_device)
+
+    if calc_device != "cpu" and not torch.cuda.is_available():
+        calc_device = "cpu"
         print(
             "Warning: No GPU found! Using the CPU instead. The iterations will be slow."
         )
@@ -409,12 +401,15 @@ def generate(
             "Perhaps CUDA/ROCm or the right pytorch version is not properly installed?"
         )
 
+    if calc_device != "cpu" and torch.backends.cudnn.is_available():
+        torch.backends.cudnn.deterministic = True
+
     # Loading Img inputed by user
 
-    if args.usr_img_path != "None":
-        User_img = imageio.imread(args.usr_img_path)
+    if transimg != None:
+        User_img = imageio.imread(transimg)
         User_img = cv2.resize(User_img, np.array(size))
-        User_img = torch.from_numpy(User_img).to(device)
+        User_img = torch.from_numpy(User_img).to(calc_device)
 
     # Various functions and classes
     def sinc(x):
@@ -573,11 +568,15 @@ def generate(
 
             # Pick your own augments & their order
             augment_list = []
-            for item in args.augments[0]:
+            for item in augments[0]:
                 if item == "Ji":
                     augment_list.append(
                         K.ColorJitter(
-                            brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.7
+                            brightness=0.1,
+                            contrast=0.1,
+                            saturation=0.1,
+                            hue=0.1,
+                            p=0.7,
                         )
                     )
                 elif item == "Sh":
@@ -709,11 +708,15 @@ def generate(
 
             # Pick your own augments & their order
             augment_list = []
-            for item in args.augments[0]:
+            for item in augments[0]:
                 if item == "Ji":
                     augment_list.append(
                         K.ColorJitter(
-                            brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.7
+                            brightness=0.1,
+                            contrast=0.1,
+                            saturation=0.1,
+                            hue=0.1,
+                            p=0.7
                         )
                     )
                 elif item == "Sh":
@@ -854,18 +857,13 @@ def generate(
             return clamp_with_grad(torch.cat(cutouts, dim=0), 0, 1)
 
     def load_vqgan_model(config_path, checkpoint_path):
-        global gumbel
-        gumbel = False
         config = OmegaConf.load(config_path)
         if config.model.target == "taming.models.vqgan.VQModel":
             model = vqgan.VQModel(**config.model.params)
             model.eval().requires_grad_(False)
             model.init_from_ckpt(checkpoint_path)
         elif config.model.target == "taming.models.vqgan.GumbelVQ":
-            model = vqgan.GumbelVQ(**config.model.params)
-            model.eval().requires_grad_(False)
-            model.init_from_ckpt(checkpoint_path)
-            gumbel = True
+            ValueError(f"Gumble model not supported now: {config.model.target}")
         elif config.model.target == "taming.models.cond_transformer.Net2NetTransformer":
             parent_model = cond_transformer.Net2NetTransformer(**config.model.params)
             parent_model.eval().requires_grad_(False)
@@ -883,9 +881,11 @@ def generate(
         return image.resize(size, Image.LANCZOS)
 
     # Do it
-    model = load_vqgan_model(vqgan_config, vqgan_checkpoint).to(device)
+    model = load_vqgan_model(vqgan_config, vqgan_checkpoint).to(calc_device)
     jit = True if "1.7.1" in torch.__version__ else False
-    perceptor = clip.load(clip_model, jit=jit)[0].eval().requires_grad_(False)
+    perceptor = (
+        clip.load(clip_model, calc_device, jit=jit)[0].eval().requires_grad_(False)
+    )
 
     # clock=deepcopy(perceptor.visual.positional_embedding.data)
     # perceptor.visual.positional_embedding.data = clock/clock.max()
@@ -911,16 +911,10 @@ def generate(
     sideX, sideY = toksX * f, toksY * f
 
     # Gumbel or not?
-    if gumbel:
-        e_dim = 256
-        n_toks = model.quantize.n_embed
-        z_min = model.quantize.embed.weight.min(dim=0).values[None, :, None, None]
-        z_max = model.quantize.embed.weight.max(dim=0).values[None, :, None, None]
-    else:
-        e_dim = model.quantize.e_dim
-        n_toks = model.quantize.n_e
-        z_min = model.quantize.embedding.weight.min(dim=0).values[None, :, None, None]
-        z_max = model.quantize.embedding.weight.max(dim=0).values[None, :, None, None]
+    e_dim = model.quantize.e_dim
+    n_toks = model.quantize.n_e
+    z_min = model.quantize.embedding.weight.min(dim=0).values[None, :, None, None]
+    z_max = model.quantize.embedding.weight.max(dim=0).values[None, :, None, None]
 
     if init_image:
         if "http" in init_image:
@@ -930,28 +924,25 @@ def generate(
         pil_image = img.convert("RGB")
         pil_image = pil_image.resize((sideX, sideY), Image.LANCZOS)
         pil_tensor = TF.to_tensor(pil_image)
-        z, *_ = model.encode(pil_tensor.to(device).unsqueeze(0) * 2 - 1)
+        z, *_ = model.encode(pil_tensor.to(calc_device).unsqueeze(0) * 2 - 1)
     elif init_noise == "pixels":
         img = random_noise_image(size[0], size[1])
         pil_image = img.convert("RGB")
         pil_image = pil_image.resize((sideX, sideY), Image.LANCZOS)
         pil_tensor = TF.to_tensor(pil_image)
-        z, *_ = model.encode(pil_tensor.to(device).unsqueeze(0) * 2 - 1)
+        z, *_ = model.encode(pil_tensor.to(calc_device).unsqueeze(0) * 2 - 1)
     elif init_noise == "gradient":
         img = random_gradient_image(size[0], size[1])
         pil_image = img.convert("RGB")
         pil_image = pil_image.resize((sideX, sideY), Image.LANCZOS)
         pil_tensor = TF.to_tensor(pil_image)
-        z, *_ = model.encode(pil_tensor.to(device).unsqueeze(0) * 2 - 1)
+        z, *_ = model.encode(pil_tensor.to(calc_device).unsqueeze(0) * 2 - 1)
     else:
         one_hot = F.one_hot(
-            torch.randint(n_toks, [toksY * toksX], device=device), n_toks
+            torch.randint(n_toks, [toksY * toksX], device=calc_device), n_toks
         ).float()
-        # z = one_hot @ model.quantize.embedding.weight
-        if gumbel:
-            z = one_hot @ model.quantize.embed.weight
-        else:
-            z = one_hot @ model.quantize.embedding.weight
+
+        z = one_hot @ model.quantize.embedding.weight
 
         z = z.view([-1, toksY, toksX, e_dim]).permute(0, 3, 1, 2)
         # z = torch.rand_like(z)*2						# NR: check
@@ -997,13 +988,13 @@ def generate(
     opt = get_opt(optimiser, learningrate)
 
     # Output for the user
-    print("Using device:", device)
+    print("Using device:", calc_device)
     print("Optimising using:", optimiser)
 
     # if args.prompts:
     #     print("Using text prompts:", args.prompts)
-    if args.audio_prompt:
-        print("Using audio prompts:", args.audio_prompt)
+    if filemusic:
+        print("Using audio prompts:", filemusic)
     # if args.image_prompts:
     #     print("Using image prompts:", args.image_prompts)
     if init_image:
@@ -1013,14 +1004,9 @@ def generate(
 
     # Vector quantize
     def synth(z):
-        if gumbel:
-            z_q = vector_quantize(z.movedim(1, 3), model.quantize.embed.weight).movedim(
-                3, 1
-            )
-        else:
-            z_q = vector_quantize(
-                z.movedim(1, 3), model.quantize.embedding.weight
-            ).movedim(3, 1)
+        z_q = vector_quantize(z.movedim(1, 3), model.quantize.embedding.weight).movedim(
+            3, 1
+        )
         return clamp_with_grad(model.decode(z_q).add(1).div(2), 0, 1)
 
     # @torch.no_grad()
@@ -1035,10 +1021,12 @@ def generate(
             workplace + "/" + display_picname, pnginfo=info
         )
 
-    def ascend_txt():
+    def clac_loss():
         global i
         out = synth(z)
-        iii = perceptor.encode_image(normalize(make_cutouts(out))).to(device).float()
+        iii = (
+            perceptor.encode_image(normalize(make_cutouts(out))).to(calc_device).float()
+        )
 
         result = []
 
@@ -1053,22 +1041,17 @@ def generate(
         for prompt in pMs:
             result.append(prompt(iii))
 
-        if args.usr_img_path != "None":
+        if transimg != None:
             img = torch.squeeze(out, 0).transpose(0, 1).transpose(1, 2)
             minus = (img - User_img / 255).reshape(-1)
-            loss_trans = torch.dot(minus, minus) / minus.shape[0] * 4 * args.transrate
+            loss_trans = torch.dot(minus, minus) / minus.shape[0] * 4 * transrate
             result.append(loss_trans)
 
-        img = np.array(
-            out.mul(255).clamp(0, 255)[0].cpu().detach().numpy().astype(np.uint8)
-        )[:, :, :]
-        img = np.transpose(img, (1, 2, 0))
-        imageio.imwrite(f"./gpu{args.gpu_id}/" + str(i) + ".png", np.array(img))
         return result  # return loss
 
     def train(i):
         opt.zero_grad(set_to_none=True)
-        lossAll = ascend_txt()
+        lossAll = clac_loss()
 
         if i % display_freq == 0:
             checkin(i, lossAll)
@@ -1079,7 +1062,14 @@ def generate(
 
         # with torch.no_grad():
         with torch.inference_mode():
+            out = synth(z)
+            img = np.array(
+                out.mul(255).clamp(0, 255)[0].cpu().detach().numpy().astype(np.uint8)
+            )[:, :, :]
+            img = np.transpose(img, (1, 2, 0))
             z.copy_(z.maximum(z_min).minimum(z_max))
+            imageio.imwrite(f"./{calc_device}/" + str(i) + ".png", np.array(img))
+            return f"./{calc_device}/" + str(i) + ".png"
 
     # Loading the models & Getting total video length
     wav2clip_model = wav2clip.get_model()
@@ -1088,7 +1078,7 @@ def generate(
     audiotimestamp_lst = []
     audio_length = []
     iterations_num = []
-    audio, sr = librosa.load(args.audio_prompt, sr=args.audio_sampling_freq)
+    audio, sr = librosa.load(filemusic, sr=audio_sampling_freq)
     total_seconds = int(len(audio) // sr)
     # Loading the lyrics
     # if args.lyrics:
@@ -1227,7 +1217,7 @@ def generate(
                 torch.from_numpy(wav2clip.embed_audio(audio, wav2clip_model)),
                 float(1.0),
                 float("-inf"),
-            ).to(device)
+            ).to(calc_device)
         )
         # input("Go Now?")
 
@@ -1238,13 +1228,13 @@ def generate(
             img = Image.open(path)
             pil_image = img.convert("RGB")
             img = resize_image(pil_image, (sideX, sideY))
-            batch = make_cutouts(TF.to_tensor(img).unsqueeze(0).to(device))
+            batch = make_cutouts(TF.to_tensor(img).unsqueeze(0).to(calc_device))
             pMs.append(
                 Prompt(
-                    perceptor.encode_image(normalize(batch)).to(device).float(),
+                    perceptor.encode_image(normalize(batch)).to(calc_device).float(),
                     weight,
                     stop,
-                ).to(device)
+                ).to(calc_device)
             )
             # print(batch)
 
@@ -1309,16 +1299,16 @@ def generate(
         frames = []
         tqdm.write("Generating video...")
         for i in range(init_frame, last_frame):
-            temp = Image.open(f"./gpu{args.gpu_id}/" + str(i) + ".png")
+            temp = Image.open(f"./{calc_device}/" + str(i) + ".png")
             keep = temp.copy()
             frames.append(keep)
             temp.close()
 
-        if args.output_video_fps > 9:
+        if output_video_fps > 9:
             # Hardware encoding and video frame interpolation
             print("Hardware encoding and video frame interpolation")
             print("Creating interpolated frames...")
-            ffmpeg_filter = f"minterpolate='mi_mode=mci:me=hexbs:me_mode=bidir:mc_mode=aobmc:vsbmc=1:mb_size=8:search_param=32:fps={args.output_video_fps}'"
+            ffmpeg_filter = f"minterpolate='mi_mode=mci:me=hexbs:me_mode=bidir:mc_mode=aobmc:vsbmc=1:mb_size=8:search_param=32:fps={output_video_fps}'"
             output_videocut = re.compile("\.png$").sub(
                 f"{a}.mp4", workplace + "/" + display_picname
             )
@@ -1414,5 +1404,5 @@ def generate(
     os.system(f"ffmpeg -f concat -safe 0 -i list-of-files.txt -c copy {tmp_ts_combine}")
 
     video = ffmpeg.input(tmp_ts_combine)
-    audio = ffmpeg.input(args.audio_prompt)
+    audio = ffmpeg.input(filemusic)
     ffmpeg.concat(video, audio, v=1, a=1).output(video_output, strict="-2").run()
