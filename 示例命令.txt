@@ -1,0 +1,1 @@
+python generate.py -vo Output.mp4 -ap "So Far Away.mp3" -ti img3.jpg -tr 1.5 -ips 20 -cl
