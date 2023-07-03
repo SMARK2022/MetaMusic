@@ -164,8 +164,10 @@ def generate(
             "Perhaps CUDA/ROCm or the right pytorch version is not properly installed?"
         )
 
-    if calc_device != "cpu" and torch.backends.cudnn.is_available():
-        torch.backends.cudnn.deterministic = True
+    ## Too slow
+    # if calc_device != "cpu" and torch.backends.cudnn.is_available():
+    #     print("Using cudnn to boost up!")
+    #     torch.backends.cudnn.deterministic = True
 
     # Loading Img inputed by user
 

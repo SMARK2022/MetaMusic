@@ -406,8 +406,10 @@ def generate(
             "Perhaps CUDA/ROCm or the right pytorch version is not properly installed?"
         )
 
-    if calc_device != "cpu" and torch.backends.cudnn.is_available():
-        torch.backends.cudnn.deterministic = True
+    ## Too slow
+    # if calc_device != "cpu" and torch.backends.cudnn.is_available():
+    #     print("Using cudnn to boost up!")
+    #     torch.backends.cudnn.deterministic = True
 
     # Loading Img inputed by user
 
@@ -1117,7 +1119,7 @@ def generate(
     beats = [0]
 
     for i in range(len(beats_raw)):  # 每两拍记一次
-        if i % 4 == 0:
+        if i % 2 == 0:
             beats.append(beats_raw[i])
     beats.append(len(audio) - 1)
 
