@@ -773,8 +773,7 @@ def generate(
             workplace + "/" + display_picname, pnginfo=info
         )
 
-    def clac_loss():
-        global i
+    def clac_loss(i):
         out = synth(z)
         iii = (
             perceptor.encode_image(normalize(make_cutouts(out))).to(calc_device).float()
@@ -800,7 +799,7 @@ def generate(
 
     def train(i):
         opt.zero_grad(set_to_none=True)
-        lossAll = clac_loss()
+        lossAll = clac_loss(i)
 
         if i % display_freq == 0:
             checkin(i, lossAll)
