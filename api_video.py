@@ -371,7 +371,7 @@ def generate(
             os.remove(workplace + "/" + file)
 
     # Make steps directory
-    steps_folder=clean_file_name(f"./{calc_device}")
+    steps_folder=f"./{clean_file_name(calc_device)}"
     if not os.path.exists(steps_folder):
         os.mkdir(steps_folder)
 
@@ -1302,7 +1302,7 @@ def generate(
         frames = []
         tqdm.write("Generating video...")
         for i in range(init_frame, last_frame):
-            temp = Image.open(f"./{calc_device}/" + str(i) + ".png")
+            temp = Image.open(f"{steps_folder}/" + str(i) + ".png")
             keep = temp.copy()
             frames.append(keep)
             temp.close()

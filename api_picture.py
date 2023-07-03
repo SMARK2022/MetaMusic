@@ -147,7 +147,7 @@ def generate(
             os.remove(workplace + "/" + file)
 
     # Make steps directory
-    steps_folder=clean_file_name(f"./{calc_device}")
+    steps_folder=f"./{clean_file_name(calc_device)}"
     if not os.path.exists(steps_folder):
         os.mkdir(steps_folder)
 
@@ -765,7 +765,7 @@ def generate(
     @torch.inference_mode()
     def checkin(i, losses):
         losses_str = ", ".join(f"{loss.item():g}" for loss in losses)
-        tqdm.write(f"i: {i}, loss: {sum(losses).item():g}, losses: {losses_str}")
+        # tqdm.write(f"i: {i}, loss: {sum(losses).item():g}, losses: {losses_str}")
         out = synth(z)
         info = PngImagePlugin.PngInfo()
         # info.add_text("comment", f"{args.prompts}")
