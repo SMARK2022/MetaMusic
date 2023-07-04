@@ -25,10 +25,10 @@ def Generate_img(music_file, image_path, X, Y, devices, Tr, Lr):
     output = api_picture.generate(
         filemusic=music_file.name,
         transimg=image_path,
-        size=(X.value, Y.value),
-        calc_device=devices.value,
-        learningrate=Lr.value,
-        transrate=Tr.value,
+        size=(X, Y),
+        calc_device=devices,
+        learningrate=Lr,
+        transrate=Tr,
     )
     return output
 
@@ -37,10 +37,10 @@ def Generate_video(music_file, image_path, X, Y, devices, Tr, Lr):
     output = api_video.generate(
         filemusic=music_file.name,
         transimg=image_path,
-        size=(X.value, Y.value),
-        calc_device=devices.value,
-        learningrate=Lr.value,
-        transrate=Tr.value,
+        size=(X, Y),
+        calc_device=devices,
+        learningrate=Lr,
+        transrate=Tr,
     )
     return output
 

@@ -147,6 +147,7 @@ def generate(
     # Loading Img inputed by user
 
     if transimg != None:
+        print("Using Trans Img:",transimg)
         User_img = imageio.imread(transimg)
         User_img = cv2.resize(User_img, np.array(size))
         User_img = torch.from_numpy(User_img).to(calc_device)
