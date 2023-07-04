@@ -39,20 +39,6 @@ torch.backends.cudnn.benchmark = (
 # torch.use_deterministic_algorithms(True)  # NR: grid_sampler_2d_backward_cuda does not have a deterministic implementation
 
 
-# Create the parser
-vq_parser = argparse.ArgumentParser(description="Image generation using VQGAN+CLIP")
-
-# Check for GPU and reduce the default image size if low VRAM
-default_image_size = 512  # >8GB VRAM
-if not torch.cuda.is_available():
-    print("Warning: No GPU Found.")
-    default_image_size = 512  # no GPU found
-elif (
-    get_device_properties(0).total_memory <= 2**33
-):  # 2 ** 33 = 8,589,934,592 bytes = 8 GB
-    print("Warning: GPU VRAM is less than 8GB.")
-    default_image_size = 368  # <8GB VRAM
-
 def clean_file_name(filename:str):
     invalid_chars='[\\\/:*?"<>|]'
     replace_char='-'
@@ -63,7 +49,7 @@ def generate(
     n_iteration: int = 80,
     audio_sampling_freq: int = 16000,
     display_freq: int = 10,
-    size: Union[int, int] = [default_image_size, default_image_size],
+    size: Union[int, int] = [368, 368],
     calc_device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
     init_image: str = None,
     init_noise: str = None,
