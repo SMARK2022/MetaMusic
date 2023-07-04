@@ -42,7 +42,7 @@ conda activate metamusic
 
 - 接着，在新环境中安装 Pytorch：
 
-前往 Start Locally | PyTorch 网站选择适合自己电脑的 pytorch 版本，复制链接下载安装（我使用的是 cu118 版本）
+前往 [Start Locally | PyTorch](https://pytorch.org/get-started/locally/) 网站选择适合自己电脑的 pytorch 版本，复制链接下载安装（我使用的是 cu118 版本）
 
 ```sh
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
