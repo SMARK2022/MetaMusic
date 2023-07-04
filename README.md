@@ -9,10 +9,12 @@
 
 ## 进行的探索
 
-- `[√]` 已经尝试过接入 AudioClip 模型，由于训练数据集过于贴近现实的声音识别，对音乐效果不佳
-- `[√]` 已经尝试过接入其他 VQGAN 模型，由于 ImageNet 数据集的缘故，并不是很贴近于歌曲情感图像绘制，效果不佳
-- `[√]` 已经尝试过对整个项目实现 CLIP-guided Diffusion 模型改造，但是由于视频生成效率过低，导致视频生成时间大大增加，视频模块采用过大模型逐帧生成的方案暂时被搁置
-- `[√]` 对部分代码进行兼容性改造，并对部分模型进行混合精度运算降低显存占用
+- `[×]` 已经尝试过接入 AudioClip 模型，由于训练数据集过于贴近现实的声音识别，对音乐效果不佳
+- `[×]` 已经尝试过接入其他 VQ-GAN 模型，由于 ImageNet 数据集过于写实的缘故，并不是很贴近于歌曲情感图像绘制，效果不佳
+- `[×]` 已经尝试过对整个项目实现 CLIP-guided Diffusion 模型改造，但是由于视频生成效率过低，导致视频生成时间大大增加，视频模块采用过大模型逐帧生成的方案暂时被搁置
+- `[√]` 对代码进行兼容性改造，并对部分模型进行混合精度运算降低显存占用
+- `[√]` 将两套系统成功封装为 API，可以实现简易调用
+- `[√]` 实现 gradio 的可视化界面
 - `[ ]` 尝试自己整理数据集训练 Wav2Clip 模型(或可能 VQ-GAN)
 - `[ ]` 继续尝试其他包括但不限于 Diffusion 架构的图像生成模型，接入 MetaMusic 印象图生成模块
 
@@ -48,7 +50,7 @@ conda activate metamusic
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 ```
 
-- 安装必要的系统支持库，包括但不限于 ffmpeg 等，并配置好系统环境变量
+- 安装必要的系统支持库，包括但不限于 ffmpeg, MSVC 等工具包，并配置好系统环境变量
 
 - 安装其他所需的 Python 包：
 
@@ -65,7 +67,7 @@ git clone 'https://github.com/openai/CLIP'
 git clone 'https://github.com/CompVis/taming-transformers'
 ```
 
-- 由于版本兼容性问题，推荐使用包含版本号的`requirements.txt`文件进行安装。并且，需要使用 pip 再从网上再次单独安装 `taming-transformers`
+- 由于版本兼容性问题，推荐使用包含版本号的`requirements.txt`文件进行安装。并且，需要使用 pip 从网上再次单独安装 `taming-transformers`
 
 - 您还需要至少一个预训练的 VQGAN 模型。（经测试，VQ-GAN ImageNet 16384 比较推荐）
 
@@ -83,17 +85,20 @@ wget -o checkpoints/vqgan_imagenet_f16_16384.ckpt 'https://heibox.uni-heidelberg
 
 ## 生成音乐印象图/视频
 
-要从音乐生成印象图/视频，请指定您的音乐。可以直接运行 gradiogui.py 这个 网页端 文件
+- 要从音乐生成印象图/视频，可以直接运行 `gradiogui.py` 这个可视化文件，在网页端上指定您的音乐。
 
-如果需要精细化的指令调整，可以根据需要使用 api_picture 或者 api_video 中的两个 API。
+- 如果需要精细化的参数调整，则可以根据需要使用 `api_picture` 或者 `api_video` 中的两个不同的 API。
+
+**example：**
 
 ```python
-def generate(filemusic: str,...):
+import api_picture
+api_picture.generate(filemusic=....mp3, ...):
 ```
 
-印象图的模型正在尝试训练中，效果有待提升。
+音乐印象图的模型与流程正在尝试优化中，效果有待提升。
 
-此外整个视频生成时间可能有些长，请耐心等待（大概耗时 2h 左右）
+此外，整个视频生成时间可能有些长，请耐心等待（大概耗时 2h 左右）
 
 ## 引用
 
