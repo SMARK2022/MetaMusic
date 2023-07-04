@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch.cuda.amp import autocast
 
 
 class Bottleneck(nn.Module):
@@ -41,19 +42,20 @@ class Bottleneck(nn.Module):
 
     
     def forward(self, x: torch.Tensor):
-        identity = x
+        with autocast():
+            identity = x
 
-        out = self.relu1(self.bn1(self.conv1(x)))
-        out = self.relu2(self.bn2(self.conv2(out)))
-        out = self.avgpool(out)
-        out = self.bn3(self.conv3(out))
+            out = self.relu1(self.bn1(self.conv1(x)))
+            out = self.relu2(self.bn2(self.conv2(out)))
+            out = self.avgpool(out)
+            out = self.bn3(self.conv3(out))
 
-        if self.downsample is not None:
-            identity = self.downsample(x)
+            if self.downsample is not None:
+                identity = self.downsample(x)
 
-        out += identity
-        out = self.relu3(out)
-        return out
+            out += identity
+            out = self.relu3(out)
+            return out
 
 
 class AttentionPool2d(nn.Module):
@@ -68,29 +70,30 @@ class AttentionPool2d(nn.Module):
 
     
     def forward(self, x):
-        x = x.flatten(start_dim=2).permute(2, 0, 1)  # NCHW -> (HW)NC
-        x = torch.cat([x.mean(dim=0, keepdim=True), x], dim=0)  # (HW+1)NC
-        x = x + self.positional_embedding[:, None, :].to(x.dtype)  # (HW+1)NC
-        x, _ = F.multi_head_attention_forward(
-            query=x[:1], key=x, value=x,
-            embed_dim_to_check=x.shape[-1],
-            num_heads=self.num_heads,
-            q_proj_weight=self.q_proj.weight,
-            k_proj_weight=self.k_proj.weight,
-            v_proj_weight=self.v_proj.weight,
-            in_proj_weight=None,
-            in_proj_bias=torch.cat([self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
-            bias_k=None,
-            bias_v=None,
-            add_zero_attn=False,
-            dropout_p=0,
-            out_proj_weight=self.c_proj.weight,
-            out_proj_bias=self.c_proj.bias,
-            use_separate_proj_weight=True,
-            training=self.training,
-            need_weights=False
-        )
-        return x.squeeze(0)
+        with autocast():
+            x = x.flatten(start_dim=2).permute(2, 0, 1)  # NCHW -> (HW)NC
+            x = torch.cat([x.mean(dim=0, keepdim=True), x], dim=0)  # (HW+1)NC
+            x = x + self.positional_embedding[:, None, :].to(x.dtype)  # (HW+1)NC
+            x, _ = F.multi_head_attention_forward(
+                query=x[:1], key=x, value=x,
+                embed_dim_to_check=x.shape[-1],
+                num_heads=self.num_heads,
+                q_proj_weight=self.q_proj.weight,
+                k_proj_weight=self.k_proj.weight,
+                v_proj_weight=self.v_proj.weight,
+                in_proj_weight=None,
+                in_proj_bias=torch.cat([self.q_proj.bias, self.k_proj.bias, self.v_proj.bias]),
+                bias_k=None,
+                bias_v=None,
+                add_zero_attn=False,
+                dropout_p=0,
+                out_proj_weight=self.c_proj.weight,
+                out_proj_bias=self.c_proj.bias,
+                use_separate_proj_weight=True,
+                training=self.training,
+                need_weights=False
+            )
+            return x.squeeze(0)
 
 
 class ModifiedResNet(nn.Module):
@@ -139,22 +142,23 @@ class ModifiedResNet(nn.Module):
 
     
     def forward(self, x):
-        def stem(x):
-            x = self.relu1(self.bn1(self.conv1(x)))
-            x = self.relu2(self.bn2(self.conv2(x)))
-            x = self.relu3(self.bn3(self.conv3(x)))
-            x = self.avgpool(x)
+        with autocast():
+            def stem(x):
+                x = self.relu1(self.bn1(self.conv1(x)))
+                x = self.relu2(self.bn2(self.conv2(x)))
+                x = self.relu3(self.bn3(self.conv3(x)))
+                x = self.avgpool(x)
+                return x
+
+            x = x.type(self.conv1.weight.dtype)
+            x = stem(x)
+            x = self.layer1(x)
+            x = self.layer2(x)
+            x = self.layer3(x)
+            x = self.layer4(x)
+            x = self.attnpool(x)
+
             return x
-
-        x = x.type(self.conv1.weight.dtype)
-        x = stem(x)
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.attnpool(x)
-
-        return x
 
 
 class LayerNorm(nn.LayerNorm):
@@ -162,14 +166,16 @@ class LayerNorm(nn.LayerNorm):
 
     
     def forward(self, x: torch.Tensor):
-        orig_type = x.dtype
-        ret = super().forward(x.type(torch.float32))
-        return ret.type(orig_type)
+        with autocast():
+            orig_type = x.dtype
+            ret = super().forward(x.type(torch.float32))
+            return ret.type(orig_type)
 
 
 class QuickGELU(nn.Module):
     def forward(self, x: torch.Tensor):
-        return x * torch.sigmoid(1.702 * x)
+        with autocast():
+            return x * torch.sigmoid(1.702 * x)
 
 
 class ResidualAttentionBlock(nn.Module):
@@ -192,9 +198,10 @@ class ResidualAttentionBlock(nn.Module):
 
     
     def forward(self, x: torch.Tensor):
-        x = x + self.attention(self.ln_1(x))
-        x = x + self.mlp(self.ln_2(x))
-        return x
+        with autocast():
+            x = x + self.attention(self.ln_1(x))
+            x = x + self.mlp(self.ln_2(x))
+            return x
 
 
 class Transformer(nn.Module):
@@ -206,7 +213,8 @@ class Transformer(nn.Module):
 
     
     def forward(self, x: torch.Tensor):
-        return self.resblocks(x)
+        with autocast():
+            return self.resblocks(x)
 
 
 class VisionTransformer(nn.Module):
@@ -228,23 +236,24 @@ class VisionTransformer(nn.Module):
 
     
     def forward(self, x: torch.Tensor):
-        x = self.conv1(x)  # shape = [*, width, grid, grid]
-        x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
-        x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
-        x = torch.cat([self.class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device), x], dim=1)  # shape = [*, grid ** 2 + 1, width]
-        x = x + self.positional_embedding.to(x.dtype)
-        x = self.ln_pre(x)
+        with autocast():
+            x = self.conv1(x)  # shape = [*, width, grid, grid]
+            x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
+            x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
+            x = torch.cat([self.class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device), x], dim=1)  # shape = [*, grid ** 2 + 1, width]
+            x = x + self.positional_embedding.to(x.dtype)
+            x = self.ln_pre(x)
 
-        x = x.permute(1, 0, 2)  # NLD -> LND
-        x = self.transformer(x)
-        x = x.permute(1, 0, 2)  # LND -> NLD
+            x = x.permute(1, 0, 2)  # NLD -> LND
+            x = self.transformer(x)
+            x = x.permute(1, 0, 2)  # LND -> NLD
 
-        x = self.ln_post(x[:, 0, :])
+            x = self.ln_post(x[:, 0, :])
 
-        if self.proj is not None:
-            x = x @ self.proj
+            if self.proj is not None:
+                x = x @ self.proj
 
-        return x
+            return x
 
 
 class CLIP(nn.Module):
@@ -345,7 +354,8 @@ class CLIP(nn.Module):
         return self.visual.conv1.weight.dtype
 
     def encode_image(self, image):
-        return self.visual(image.type(self.dtype))
+        with autocast():
+            return self.visual(image.type(self.dtype))
 
     def encode_text(self, text):
         x = self.token_embedding(text).type(self.dtype)  # [batch_size, n_ctx, d_model]
@@ -364,20 +374,21 @@ class CLIP(nn.Module):
 
     
     def forward(self, image, text):
-        image_features = self.encode_image(image)
-        text_features = self.encode_text(text)
+        with autocast():
+            image_features = self.encode_image(image)
+            text_features = self.encode_text(text)
 
-        # normalized features
-        image_features = image_features / image_features.norm(dim=1, keepdim=True)
-        text_features = text_features / text_features.norm(dim=1, keepdim=True)
+            # normalized features
+            image_features = image_features / image_features.norm(dim=1, keepdim=True)
+            text_features = text_features / text_features.norm(dim=1, keepdim=True)
 
-        # cosine similarity as logits
-        logit_scale = self.logit_scale.exp()
-        logits_per_image = logit_scale * image_features @ text_features.t()
-        logits_per_text = logits_per_image.t()
+            # cosine similarity as logits
+            logit_scale = self.logit_scale.exp()
+            logits_per_image = logit_scale * image_features @ text_features.t()
+            logits_per_text = logits_per_image.t()
 
-        # shape = [global_batch_size, global_batch_size]
-        return logits_per_image, logits_per_text
+            # shape = [global_batch_size, global_batch_size]
+            return logits_per_image, logits_per_text
 
 
 def convert_weights(model: nn.Module):

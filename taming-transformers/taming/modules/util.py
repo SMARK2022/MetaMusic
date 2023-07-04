@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.cuda.amp import autocast
 
 
 def count_params(model):
@@ -41,32 +42,33 @@ class ActNorm(nn.Module):
             self.scale.data.copy_(1 / (std + 1e-6))
 
     def forward(self, input, reverse=False):
-        if reverse:
-            return self.reverse(input)
-        if len(input.shape) == 2:
-            input = input[:,:,None,None]
-            squeeze = True
-        else:
-            squeeze = False
+        with autocast():
+            if reverse:
+                return self.reverse(input)
+            if len(input.shape) == 2:
+                input = input[:,:,None,None]
+                squeeze = True
+            else:
+                squeeze = False
 
-        _, _, height, width = input.shape
+            _, _, height, width = input.shape
 
-        if self.training and self.initialized.item() == 0:
-            self.initialize(input)
-            self.initialized.fill_(1)
+            if self.training and self.initialized.item() == 0:
+                self.initialize(input)
+                self.initialized.fill_(1)
 
-        h = self.scale * (input + self.loc)
+            h = self.scale * (input + self.loc)
 
-        if squeeze:
-            h = h.squeeze(-1).squeeze(-1)
+            if squeeze:
+                h = h.squeeze(-1).squeeze(-1)
 
-        if self.logdet:
-            log_abs = torch.log(torch.abs(self.scale))
-            logdet = height*width*torch.sum(log_abs)
-            logdet = logdet * torch.ones(input.shape[0]).to(input)
-            return h, logdet
+            if self.logdet:
+                log_abs = torch.log(torch.abs(self.scale))
+                logdet = height*width*torch.sum(log_abs)
+                logdet = logdet * torch.ones(input.shape[0]).to(input)
+                return h, logdet
 
-        return h
+            return h
 
     def reverse(self, output):
         if self.training and self.initialized.item() == 0:

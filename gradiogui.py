@@ -12,6 +12,9 @@ default_fps = 25
 available_devices = ["cpu"] + [
     f"cuda:{str(i)}" for i in range(torch.cuda.device_count())
 ]
+torch.backends.cudnn.benchmark = (
+    True  # NR: True is a bit faster, but can lead to OOM. False is more deterministic.
+)
 default_image_size = 512  # >8GB VRAM
 if not torch.cuda.is_available():
     print("Warning: No GPU Found.")

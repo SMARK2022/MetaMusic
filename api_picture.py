@@ -30,12 +30,9 @@ from torch import nn, optim
 from torch.nn import functional as F
 from torchvision import transforms
 from torchvision.transforms import functional as TF
-from torch.cuda import get_device_properties
 from torch.cuda.amp import autocast
 
-torch.backends.cudnn.benchmark = (
-    True  # NR: True is a bit faster, but can lead to OOM. False is more deterministic.
-)
+
 # torch.use_deterministic_algorithms(True)  # NR: grid_sampler_2d_backward_cuda does not have a deterministic implementation
 
 
@@ -62,7 +59,7 @@ def generate(
     cut_power: float = 1.0,
     seed: int = None,
     optimiser: str = "Adam",
-    display_picname: str = "output.jpg",
+    display_picname: str = "output.png",
     workplace: str = "workplace",
     toclean: bool = True,
     augments: list = [],
@@ -72,7 +69,7 @@ def generate(
     """
     ## Function Summary
 
-    This function generates an image using the WAV2CLIP+VQGAN algorithm. It takes an audio prompt as input and iteratively updates an initial image to match the prompt using gradient descent. The generated image is saved as output.jpg.
+    This function generates an image using the WAV2CLIP+VQGAN algorithm. It takes an audio prompt as input and iteratively updates an initial image to match the prompt using gradient descent. The generated image is saved as output.png.
 
     ## Arguments
 
@@ -93,7 +90,7 @@ def generate(
     - `cut_power` (float, optional): Cut power. Defaults to 1.0.
     - `seed` (int, optional): Seed for random number generation. Defaults to None.
     - `optimiser` (str, optional): Optimiser to use, ["Adam", "AdamW", "Adagrad", "Adamax", "DiffGrad", "AdamP", "RAdam", "RMSprop"]. Defaults to "Adam".
-    - `display_picname` (str, optional): Filename for the output picture. Defaults to "output.jpg".
+    - `display_picname` (str, optional): Filename for the output picture. Defaults to "output.png".
     - `workplace` (str, optional): Folder name for the workspace. Defaults to "workplace".
     - `toclean` (bool, optional): Whether to reset the workspace folder. Defaults to True.
     - `augments` (list, optional): Enabled augmentations (for latest cut method), ["Ji", "Sh", "Gn", "Pe", "Ro", "Af", "Et", "Ts", "Cr", "Er", "Re"]. Defaults to [].
@@ -247,8 +244,9 @@ def generate(
     class ReplaceGrad(torch.autograd.Function):
         @staticmethod
         def forward(ctx, x_forward, x_backward):
-            ctx.shape = x_backward.shape
-            return x_forward
+            with autocast():
+                ctx.shape = x_backward.shape
+                return x_forward
 
         @staticmethod
         def backward(ctx, grad_in):
@@ -259,10 +257,11 @@ def generate(
     class ClampWithGrad(torch.autograd.Function):
         @staticmethod
         def forward(ctx, input, min, max):
-            ctx.min = min
-            ctx.max = max
-            ctx.save_for_backward(input)
-            return input.clamp(min, max)
+            with autocast():
+                ctx.min = min
+                ctx.max = max
+                ctx.save_for_backward(input)
+                return input.clamp(min, max)
 
         @staticmethod
         def backward(ctx, grad_in):
@@ -291,18 +290,19 @@ def generate(
             self.register_buffer("embed", embed)
             self.register_buffer("weight", torch.as_tensor(weight))
             self.register_buffer("stop", torch.as_tensor(stop))
-
+        
         def forward(self, input):
-            input_normed = F.normalize(input.unsqueeze(1), dim=2)
-            embed_normed = F.normalize(self.embed.unsqueeze(0), dim=2)
-            dists = (
-                input_normed.sub(embed_normed).norm(dim=2).div(2).arcsin().pow(2).mul(2)
-            )
-            dists = dists * self.weight.sign()
-            return (
-                self.weight.abs()
-                * replace_grad(dists, torch.maximum(dists, self.stop)).mean()
-            )
+            with autocast():
+                input_normed = F.normalize(input.unsqueeze(1), dim=2)
+                embed_normed = F.normalize(self.embed.unsqueeze(0), dim=2)
+                dists = (
+                    input_normed.sub(embed_normed).norm(dim=2).div(2).arcsin().pow(2).mul(2)
+                )
+                dists = dists * self.weight.sign()
+                return (
+                    self.weight.abs()
+                    * replace_grad(dists, torch.maximum(dists, self.stop)).mean()
+                )
 
     class MakeCutouts(nn.Module):
         def __init__(self, cut_size, cutn, cut_pow=1.0):
@@ -392,19 +392,20 @@ def generate(
             self.max_pool = nn.AdaptiveMaxPool2d((self.cut_size, self.cut_size))
 
         def forward(self, input):
-            cutouts = []
+            with autocast():
+                cutouts = []
 
-            for _ in range(self.cutn):
-                # Use Pooling
-                cutout = (self.av_pool(input) + self.max_pool(input)) / 2
-                cutouts.append(cutout)
+                for _ in range(self.cutn):
+                    # Use Pooling
+                    cutout = (self.av_pool(input) + self.max_pool(input)) / 2
+                    cutouts.append(cutout)
 
-            batch = self.augs(torch.cat(cutouts, dim=0))
+                batch = self.augs(torch.cat(cutouts, dim=0))
 
-            if self.noise_fac:
-                facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
-                batch = batch + facs * torch.randn_like(batch)
-            return batch
+                if self.noise_fac:
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    batch = batch + facs * torch.randn_like(batch)
+                return batch
 
     # An updated version with Kornia augments and pooling (where my version started):
     class MakeCutoutsPoolingUpdate(nn.Module):
@@ -426,21 +427,22 @@ def generate(
             self.max_pool = nn.AdaptiveMaxPool2d((self.cut_size, self.cut_size))
 
         def forward(self, input):
-            sideY, sideX = input.shape[2:4]
-            max_size = min(sideX, sideY)
-            min_size = min(sideX, sideY, self.cut_size)
-            cutouts = []
+            with autocast():
+                sideY, sideX = input.shape[2:4]
+                max_size = min(sideX, sideY)
+                min_size = min(sideX, sideY, self.cut_size)
+                cutouts = []
 
-            for _ in range(self.cutn):
-                cutout = (self.av_pool(input) + self.max_pool(input)) / 2
-                cutouts.append(cutout)
+                for _ in range(self.cutn):
+                    cutout = (self.av_pool(input) + self.max_pool(input)) / 2
+                    cutouts.append(cutout)
 
-            batch = self.augs(torch.cat(cutouts, dim=0))
+                batch = self.augs(torch.cat(cutouts, dim=0))
 
-            if self.noise_fac:
-                facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
-                batch = batch + facs * torch.randn_like(batch)
-            return batch
+                if self.noise_fac:
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    batch = batch + facs * torch.randn_like(batch)
+                return batch
 
     # An Nerdy updated version with selectable Kornia augments, but no pooling:
     class MakeCutoutsNRUpdate(nn.Module):
@@ -524,23 +526,24 @@ def generate(
 
         @autocast
         def forward(self, input):
-            sideY, sideX = input.shape[2:4]
-            max_size = min(sideX, sideY)
-            min_size = min(sideX, sideY, self.cut_size)
-            cutouts = []
-            for _ in range(self.cutn):
-                size = int(
-                    torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
-                )
-                offsetx = torch.randint(0, sideX - size + 1, ())
-                offsety = torch.randint(0, sideY - size + 1, ())
-                cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
-                cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
-            batch = self.augs(torch.cat(cutouts, dim=0))
-            if self.noise_fac:
-                facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
-                batch = batch + facs * torch.randn_like(batch)
-            return batch
+            with autocast():
+                sideY, sideX = input.shape[2:4]
+                max_size = min(sideX, sideY)
+                min_size = min(sideX, sideY, self.cut_size)
+                cutouts = []
+                for _ in range(self.cutn):
+                    size = int(
+                        torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
+                    )
+                    offsetx = torch.randint(0, sideX - size + 1, ())
+                    offsety = torch.randint(0, sideY - size + 1, ())
+                    cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
+                    cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
+                batch = self.augs(torch.cat(cutouts, dim=0))
+                if self.noise_fac:
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    batch = batch + facs * torch.randn_like(batch)
+                return batch
 
     # An updated version with Kornia augments, but no pooling:
     class MakeCutoutsUpdate(nn.Module):
@@ -560,23 +563,24 @@ def generate(
             self.noise_fac = 0.1
 
         def forward(self, input):
-            sideY, sideX = input.shape[2:4]
-            max_size = min(sideX, sideY)
-            min_size = min(sideX, sideY, self.cut_size)
-            cutouts = []
-            for _ in range(self.cutn):
-                size = int(
-                    torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
-                )
-                offsetx = torch.randint(0, sideX - size + 1, ())
-                offsety = torch.randint(0, sideY - size + 1, ())
-                cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
-                cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
-            batch = self.augs(torch.cat(cutouts, dim=0))
-            if self.noise_fac:
-                facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
-                batch = batch + facs * torch.randn_like(batch)
-            return batch
+            with autocast():
+                sideY, sideX = input.shape[2:4]
+                max_size = min(sideX, sideY)
+                min_size = min(sideX, sideY, self.cut_size)
+                cutouts = []
+                for _ in range(self.cutn):
+                    size = int(
+                        torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
+                    )
+                    offsetx = torch.randint(0, sideX - size + 1, ())
+                    offsety = torch.randint(0, sideY - size + 1, ())
+                    cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
+                    cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
+                batch = self.augs(torch.cat(cutouts, dim=0))
+                if self.noise_fac:
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    batch = batch + facs * torch.randn_like(batch)
+                return batch
 
     # This is the original version (No pooling)
     class MakeCutoutsOrig(nn.Module):
@@ -587,19 +591,20 @@ def generate(
             self.cut_pow = cut_pow
 
         def forward(self, input):
-            sideY, sideX = input.shape[2:4]
-            max_size = min(sideX, sideY)
-            min_size = min(sideX, sideY, self.cut_size)
-            cutouts = []
-            for _ in range(self.cutn):
-                size = int(
-                    torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
-                )
-                offsetx = torch.randint(0, sideX - size + 1, ())
-                offsety = torch.randint(0, sideY - size + 1, ())
-                cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
-                cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
-            return clamp_with_grad(torch.cat(cutouts, dim=0), 0, 1)
+            with autocast():
+                sideY, sideX = input.shape[2:4]
+                max_size = min(sideX, sideY)
+                min_size = min(sideX, sideY, self.cut_size)
+                cutouts = []
+                for _ in range(self.cutn):
+                    size = int(
+                        torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
+                    )
+                    offsetx = torch.randint(0, sideX - size + 1, ())
+                    offsety = torch.randint(0, sideY - size + 1, ())
+                    cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
+                    cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
+                return clamp_with_grad(torch.cat(cutouts, dim=0), 0, 1)
 
     def load_vqgan_model(config_path, checkpoint_path):
         config = OmegaConf.load(config_path)
