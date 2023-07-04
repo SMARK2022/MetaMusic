@@ -7,7 +7,7 @@ from torch.cuda import get_device_properties
 theme = gr.themes.Soft()
 default_lr = 0.2
 default_tr = 1
-default_it = 80
+default_it = 60
 default_fps = 25
 available_devices = ["cpu"] + [
     f"cuda:{str(i)}" for i in range(torch.cuda.device_count())
@@ -135,7 +135,7 @@ with gr.Blocks(theme=theme) as demo:
                         value=available_devices[-1],
                         label="Devices",
                     )
-                    Fps_bar_for_image = gr.Slider(
+                    Fps_bar_for_video = gr.Slider(
                         1,
                         120,
                         value=default_fps,
@@ -201,6 +201,7 @@ with gr.Blocks(theme=theme) as demo:
             music2video_devices,
             Tr_bar_for_video,
             Lr_bar_for_video,
+            Fps_bar_for_video,
         ],
         outputs=music2video_output,
     )
