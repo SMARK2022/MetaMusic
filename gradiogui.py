@@ -5,8 +5,8 @@ import torch
 from torch.cuda import get_device_properties
 
 theme = gr.themes.Soft()
-default_lr=0.1
-default_tr=1
+default_lr = 0.1
+default_tr = 1
 available_devices = ["cpu"] + [
     f"cuda:{str(i)}" for i in range(torch.cuda.device_count())
 ]
@@ -21,7 +21,7 @@ elif (
     default_image_size = 368  # <8GB VRAM
 
 
-def Generate_img(music_file, image_path, X, Y, devices,Tr,Lr):
+def Generate_img(music_file, image_path, X, Y, devices, Tr, Lr):
     output = api_picture.generate(
         filemusic=music_file.name,
         transimg=image_path,
@@ -33,7 +33,7 @@ def Generate_img(music_file, image_path, X, Y, devices,Tr,Lr):
     return output
 
 
-def Generate_video(music_file, image_path, X, Y, devices,Tr,Lr):
+def Generate_video(music_file, image_path, X, Y, devices, Tr, Lr):
     output = api_video.generate(
         filemusic=music_file.name,
         transimg=image_path,
@@ -47,20 +47,26 @@ def Generate_video(music_file, image_path, X, Y, devices,Tr,Lr):
 
 theme = gr.themes.Soft()
 with gr.Blocks(theme=theme) as demo:
-    gr.Markdown("# MetaMusic —— 一款基于Wav2clip架构与VQ-GAN生成模型的音乐印象图生成系统")
+    gr.Markdown("# MetaMusic —— 一款基于Wav2clip指导与VQ-GAN生成模型架构的音乐印象图生成系统")
     with gr.Tab("音乐印象图生成"):
         with gr.Blocks():
             with gr.Row():
                 with gr.Column():
                     music2pic_music_input = gr.File()
-                    music2pic_image_input_path = gr.Image(type="filepath")
-                    Tr_bar_for_image = gr.Slider(
-                        0,
-                        8,
-                        value=default_tr,
-                        label="Image Transfer Rate",
-                        info="Choose between 0 and 8",
-                        interactive=True,
+                    with gr.Accordion("Image Transfer (Optional)"): # 可折叠的组件
+                        music2pic_image_input_path = gr.Image(type="filepath")
+                        Tr_bar_for_image = gr.Slider(
+                            0,
+                            8,
+                            value=default_tr,
+                            label="Image Transfer Rate",
+                            info="Choose between 0 and 8",
+                            interactive=True,
+                        )
+                    music2pic_devices = gr.Dropdown(
+                        available_devices,
+                        value=available_devices[-1],
+                        label="Devices",
                     )
                     Lr_bar_for_image = gr.Slider(
                         0.001,
@@ -69,10 +75,6 @@ with gr.Blocks(theme=theme) as demo:
                         label="Generate Learning Rate",
                         info="Choose between 0.001 and 1",
                         interactive=True,
-                    )
-                    music2pic_devices = gr.Dropdown(
-                        available_devices, value=available_devices[-1],
-                        label="Devices",
                     )
                     X_size_bar_for_image = gr.Slider(
                         0,
@@ -101,14 +103,20 @@ with gr.Blocks(theme=theme) as demo:
             with gr.Row():
                 with gr.Column():
                     music2video_music_input = gr.File()
-                    music2video_image_input_path = gr.Image(type="filepath")
-                    Tr_bar_for_video = gr.Slider(
-                        0,
-                        8,
-                        value=default_tr,
-                        label="Image Transfer Rate",
-                        info="Choose between 0 and 8",
-                        interactive=True,
+                    with gr.Accordion("Image Transfer (Optional)"): # 可折叠的组件
+                        music2video_image_input_path = gr.Image(type="filepath")
+                        Tr_bar_for_video = gr.Slider(
+                            0,
+                            8,
+                            value=default_tr,
+                            label="Image Transfer Rate",
+                            info="Choose between 0 and 8",
+                            interactive=True,
+                        )
+                    music2video_devices = gr.Dropdown(
+                        available_devices,
+                        value=available_devices[-1],
+                        label="Devices",
                     )
                     Lr_bar_for_video = gr.Slider(
                         0.001,
@@ -117,10 +125,6 @@ with gr.Blocks(theme=theme) as demo:
                         label="Generate Learning Rate",
                         info="Choose between 0.001 and 1",
                         interactive=True,
-                    )
-                    music2video_devices = gr.Dropdown(
-                        available_devices, value=available_devices[-1],
-                        label="Devices",
                     )
                     X_size_bar_for_video = gr.Slider(
                         0,
@@ -145,8 +149,7 @@ with gr.Blocks(theme=theme) as demo:
             with gr.Row():
                 music2video_button = gr.Button("Generate")
 
-    with gr.Accordion("Open for More!"):
-        gr.Markdown("Look at me...")
+    gr.Markdown("## Made by MetaMusic")
 
     music2pic_button.click(
         Generate_img,
@@ -157,7 +160,7 @@ with gr.Blocks(theme=theme) as demo:
             Y_size_bar_for_image,
             music2pic_devices,
             Tr_bar_for_image,
-            Lr_bar_for_image
+            Lr_bar_for_image,
         ],
         outputs=music2pic_output,
     )
