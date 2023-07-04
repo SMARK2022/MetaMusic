@@ -5,7 +5,7 @@ import torch
 from torch.cuda import get_device_properties
 
 theme = gr.themes.Soft()
-default_lr = 0.1
+default_lr = 0.2
 default_tr = 1
 default_it = 80
 default_fps = 25
