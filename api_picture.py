@@ -11,9 +11,7 @@ from CLIP import clip
 from taming.models import cond_transformer, vqgan
 from omegaconf import OmegaConf
 from torch_optimizer import DiffGrad, AdamP, RAdam
-import argparse
 import math
-import time
 from typing import Any, Union, List
 import re
 
@@ -36,16 +34,17 @@ from torch.cuda.amp import autocast
 # torch.use_deterministic_algorithms(True)  # NR: grid_sampler_2d_backward_cuda does not have a deterministic implementation
 
 
-def clean_file_name(filename:str):
-    invalid_chars='[\\\/:*?"<>|]'
-    replace_char='-'
-    return re.sub(invalid_chars,replace_char,filename)
+def clean_file_name(filename: str):
+    invalid_chars = '[\\\/:*?"<>|]'
+    replace_char = "-"
+    return re.sub(invalid_chars, replace_char, filename)
+
 
 def generate(
     filemusic: str,
     n_iteration: int = 80,
     audio_sampling_freq: int = 16000,
-    display_freq: int = 10,
+    display_freq: int = 20,
     size: Union[int, int] = [368, 368],
     calc_device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
     init_image: str = None,
@@ -130,7 +129,7 @@ def generate(
             os.remove(workplace + "/" + file)
 
     # Make steps directory
-    steps_folder=f"./{clean_file_name(calc_device)}"
+    steps_folder = f"./{clean_file_name(calc_device)}"
     if not os.path.exists(steps_folder):
         os.mkdir(steps_folder)
 
@@ -155,7 +154,7 @@ def generate(
     # Loading Img inputed by user
 
     if transimg != None:
-        print("Using Trans Img:",transimg)
+        print("Using Trans Img:", transimg)
         User_img = imageio.imread(transimg)
         User_img = cv2.resize(User_img, np.array(size))
         User_img = torch.from_numpy(User_img).to(calc_device)
@@ -290,13 +289,18 @@ def generate(
             self.register_buffer("embed", embed)
             self.register_buffer("weight", torch.as_tensor(weight))
             self.register_buffer("stop", torch.as_tensor(stop))
-        
+
         def forward(self, input):
             with autocast():
                 input_normed = F.normalize(input.unsqueeze(1), dim=2)
                 embed_normed = F.normalize(self.embed.unsqueeze(0), dim=2)
                 dists = (
-                    input_normed.sub(embed_normed).norm(dim=2).div(2).arcsin().pow(2).mul(2)
+                    input_normed.sub(embed_normed)
+                    .norm(dim=2)
+                    .div(2)
+                    .arcsin()
+                    .pow(2)
+                    .mul(2)
                 )
                 dists = dists * self.weight.sign()
                 return (
@@ -403,7 +407,9 @@ def generate(
                 batch = self.augs(torch.cat(cutouts, dim=0))
 
                 if self.noise_fac:
-                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(
+                        0, self.noise_fac
+                    )
                     batch = batch + facs * torch.randn_like(batch)
                 return batch
 
@@ -440,7 +446,9 @@ def generate(
                 batch = self.augs(torch.cat(cutouts, dim=0))
 
                 if self.noise_fac:
-                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(
+                        0, self.noise_fac
+                    )
                     batch = batch + facs * torch.randn_like(batch)
                 return batch
 
@@ -459,11 +467,7 @@ def generate(
                 if item == "Ji":
                     augment_list.append(
                         K.ColorJitter(
-                            brightness=0.1,
-                            contrast=0.1,
-                            saturation=0.1,
-                            hue=0.1,
-                            p=0.7
+                            brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.7
                         )
                     )
                 elif item == "Sh":
@@ -524,7 +528,6 @@ def generate(
 
             self.augs = nn.Sequential(*augment_list)
 
-        @autocast
         def forward(self, input):
             with autocast():
                 sideY, sideX = input.shape[2:4]
@@ -533,15 +536,20 @@ def generate(
                 cutouts = []
                 for _ in range(self.cutn):
                     size = int(
-                        torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
+                        torch.rand([]) ** self.cut_pow * (max_size - min_size)
+                        + min_size
                     )
                     offsetx = torch.randint(0, sideX - size + 1, ())
                     offsety = torch.randint(0, sideY - size + 1, ())
-                    cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
+                    cutout = input[
+                        :, :, offsety : offsety + size, offsetx : offsetx + size
+                    ]
                     cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
                 batch = self.augs(torch.cat(cutouts, dim=0))
                 if self.noise_fac:
-                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(
+                        0, self.noise_fac
+                    )
                     batch = batch + facs * torch.randn_like(batch)
                 return batch
 
@@ -570,15 +578,20 @@ def generate(
                 cutouts = []
                 for _ in range(self.cutn):
                     size = int(
-                        torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
+                        torch.rand([]) ** self.cut_pow * (max_size - min_size)
+                        + min_size
                     )
                     offsetx = torch.randint(0, sideX - size + 1, ())
                     offsety = torch.randint(0, sideY - size + 1, ())
-                    cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
+                    cutout = input[
+                        :, :, offsety : offsety + size, offsetx : offsetx + size
+                    ]
                     cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
                 batch = self.augs(torch.cat(cutouts, dim=0))
                 if self.noise_fac:
-                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(
+                        0, self.noise_fac
+                    )
                     batch = batch + facs * torch.randn_like(batch)
                 return batch
 
@@ -598,11 +611,14 @@ def generate(
                 cutouts = []
                 for _ in range(self.cutn):
                     size = int(
-                        torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
+                        torch.rand([]) ** self.cut_pow * (max_size - min_size)
+                        + min_size
                     )
                     offsetx = torch.randint(0, sideX - size + 1, ())
                     offsety = torch.randint(0, sideY - size + 1, ())
-                    cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
+                    cutout = input[
+                        :, :, offsety : offsety + size, offsetx : offsetx + size
+                    ]
                     cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
                 return clamp_with_grad(torch.cat(cutouts, dim=0), 0, 1)
 
@@ -785,7 +801,7 @@ def generate(
             result.append(loss_trans)
 
         img = np.array(
-        out.mul(255).clamp(0, 255)[0].cpu().detach().numpy().astype(np.uint8)
+            out.mul(255).clamp(0, 255)[0].cpu().detach().numpy().astype(np.uint8)
         )[:, :, :]
         img = np.transpose(img, (1, 2, 0))
         imageio.imwrite(f"{steps_folder}/" + str(i) + ".png", np.array(img))

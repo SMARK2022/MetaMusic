@@ -14,7 +14,6 @@ from CLIP import clip
 from taming.models import cond_transformer, vqgan
 from omegaconf import OmegaConf
 from torch_optimizer import DiffGrad, AdamP, RAdam
-import argparse
 import math
 from typing import Any, Union, List
 import time
@@ -38,19 +37,19 @@ from torch.cuda.amp import autocast
 # torch.use_deterministic_algorithms(True)  # NR: grid_sampler_2d_backward_cuda does not have a deterministic implementation
 
 
-def clean_file_name(filename:str):
-    invalid_chars='[\\\/:*?"<>|]'
-    replace_char='-'
-    return re.sub(invalid_chars,replace_char,filename)
+def clean_file_name(filename: str):
+    invalid_chars = '[\\\/:*?"<>|]'
+    replace_char = "-"
+    return re.sub(invalid_chars, replace_char, filename)
 
 
 def generate(
     filemusic: str,
-    video_output: str="output.mp4",
+    video_output: str = "output.mp4",
     iterations_per_second: int = 30,
     output_video_fps: float = 0,
     audio_sampling_freq: int = 16000,
-    display_freq: int = 50,
+    display_freq: int = 20,
     size: Union[int, int] = [368, 368],
     calc_device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
     init_image: str = None,
@@ -71,6 +70,47 @@ def generate(
     transrate: float = 0,
     transimg: str = None,
 ):
+    """
+    ## Function Summary
+
+    This function generates an image using the WAV2CLIP+VQGAN algorithm. It takes an audio prompt as input and iteratively updates an initial image to match the prompt using gradient descent. The generated image is saved as output.png.
+
+    ## Arguments
+
+    - `filemusic` (str): The file path of the audio prompt.
+    - `video_output` (str, optional): The file path to save the generated video. Defaults to "output.mp4".
+    - `iterations_per_second` (int, optional): The number of iterations to perform per second. Defaults to 30.
+    - `output_video_fps` (float, optional): The frames per second for the output video. Defaults to 0.
+    - `audio_sampling_freq` (int, optional): The sampling frequency of the audio. Defaults to 16000.
+    - `display_freq` (int, optional): The number of iterations between displaying progress. Defaults to 20.
+    - `size` (Union[int, int], optional): The output size of the image. Defaults to [368, 368].
+    - `calc_device` (str, optional): The device to use for calculations, either "cuda:0" or "cpu". Defaults to "cuda:0" if torch.cuda.is_available() else "cpu".
+    - `init_image` (str, optional): The file path of the initial image. Defaults to None.
+    - `init_noise` (str, optional): The file path of the initial noise image (pixels or gradient). Defaults to None.
+    - `clip_model` (str, optional): The CLIP model to use (e.g. "ViT-B/32", "ViT-B/16"). Defaults to "ViT-B/32".
+    - `vqgan_config` (str, optional): The file path of the VQGAN config. Defaults to "checkpoints/vqgan_imagenet_f16_16384.yaml".
+    - `vqgan_checkpoint` (str, optional): The file path of the VQGAN checkpoint. Defaults to "checkpoints/vqgan_imagenet_f16_16384.ckpt".
+    - `learningrate` (float, optional): The learning rate for gradient descent. Defaults to 0.1.
+    - `cut_method` (str, optional): The method to use for cutting the image. Available options are "original", "updated", "nrupdated", "updatedpooling", and "latest". Defaults to "latest".
+    - `num_cuts` (int, optional): The number of cuts to perform. Defaults to 32.
+    - `cut_power` (float, optional): The power to use for cutting. Defaults to 1.0.
+    - `seed` (int, optional): The seed for random number generation. Defaults to None.
+    - `optimiser` (str, optional): The optimiser to use for gradient descent. Available options are "Adam", "AdamW", "Adagrad", "Adamax", "DiffGrad", "AdamP", "RAdam", and "RMSprop". Defaults to "Adam".
+    - `display_picname` (str, optional): The filename for the output picture. Defaults to "output.png".
+    - `workplace` (str, optional): The folder name for the workspace. Defaults to "workplace".
+    - `toclean` (bool, optional): Whether to reset the workspace folder. Defaults to True.
+    - `augments` (list, optional): The enabled augmentations for the latest cut method. Available options are "Ji", "Sh", "Gn", "Pe", "Ro", "Af", "Et", "Ts", "Cr", "Er", and "Re". Defaults to [].
+    - `transrate` (float, optional): The image transform rate. Defaults to 0.
+    - `transimg` (str, optional): The file path of the image input for transformation. Defaults to None.
+
+    ## Raises
+
+    - `ValueError`: Exception raised if there is an error in the parameters or during execution.
+
+    ## Returns
+
+    - `_type_`: Description of the returned value. (Missing information)
+    """
     # Setting gpu id to use
 
     # pip install taming-transformers doesn't work with Gumbel, but does not yet work with coco etc
@@ -85,9 +125,6 @@ def generate(
 
     warnings.filterwarnings("ignore")
 
-    # if not args.prompts and not args.image_prompts:
-    #    args.prompts = "A cute, smiling, Nerdy Rodent"
-
     if not augments:
         augments = [["Af", "Pe", "Ji", "Er"]]
 
@@ -99,27 +136,9 @@ def generate(
             os.remove(workplace + "/" + file)
 
     # Make steps directory
-    steps_folder=f"./{clean_file_name(calc_device)}"
+    steps_folder = f"./{clean_file_name(calc_device)}"
     if not os.path.exists(steps_folder):
         os.mkdir(steps_folder)
-
-    # Split text prompts using the pipe character (weights are split later)
-    # if args.prompts:
-    #     # For stories, there will be many phrases
-    #     story_phrases = [phrase.strip() for phrase in args.prompts.split("^")]
-
-    #     # Make a list of all phrases
-    #     all_phrases = []
-    #     for phrase in story_phrases:
-    #         all_phrases.append(phrase.split("|"))
-
-    #     # First phrase
-    #     args.prompts = all_phrases[0]
-
-    # Split target images using the pipe character (weights are split later)
-    # if args.image_prompts:
-    #     args.image_prompts = args.image_prompts.split("|")
-    #     args.image_prompts = [image.strip() for image in args.image_prompts]
 
     # Fallback to CPU if CUDA is not found and make sure GPU video rendering is also disabled
     # NB. May not work for AMD cards?
@@ -142,7 +161,7 @@ def generate(
     # Loading Img inputed by user
 
     if transimg != None:
-        print("Using Trans Img:",transimg)
+        print("Using Trans Img:", transimg)
         User_img = imageio.imread(transimg)
         User_img = cv2.resize(User_img, np.array(size))
         User_img = torch.from_numpy(User_img).to(calc_device)
@@ -283,7 +302,12 @@ def generate(
                 input_normed = F.normalize(input.unsqueeze(1), dim=2)
                 embed_normed = F.normalize(self.embed.unsqueeze(0), dim=2)
                 dists = (
-                    input_normed.sub(embed_normed).norm(dim=2).div(2).arcsin().pow(2).mul(2)
+                    input_normed.sub(embed_normed)
+                    .norm(dim=2)
+                    .div(2)
+                    .arcsin()
+                    .pow(2)
+                    .mul(2)
                 )
                 dists = dists * self.weight.sign()
                 return (
@@ -397,7 +421,9 @@ def generate(
                 batch = self.augs(torch.cat(cutouts, dim=0))
 
                 if self.noise_fac:
-                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(
+                        0, self.noise_fac
+                    )
                     batch = batch + facs * torch.randn_like(batch)
                 return batch
 
@@ -434,7 +460,9 @@ def generate(
                 batch = self.augs(torch.cat(cutouts, dim=0))
 
                 if self.noise_fac:
-                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(
+                        0, self.noise_fac
+                    )
                     batch = batch + facs * torch.randn_like(batch)
                 return batch
 
@@ -453,11 +481,7 @@ def generate(
                 if item == "Ji":
                     augment_list.append(
                         K.ColorJitter(
-                            brightness=0.1,
-                            contrast=0.1,
-                            saturation=0.1,
-                            hue=0.1,
-                            p=0.7
+                            brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.7
                         )
                     )
                 elif item == "Sh":
@@ -526,15 +550,20 @@ def generate(
                 cutouts = []
                 for _ in range(self.cutn):
                     size = int(
-                        torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
+                        torch.rand([]) ** self.cut_pow * (max_size - min_size)
+                        + min_size
                     )
                     offsetx = torch.randint(0, sideX - size + 1, ())
                     offsety = torch.randint(0, sideY - size + 1, ())
-                    cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
+                    cutout = input[
+                        :, :, offsety : offsety + size, offsetx : offsetx + size
+                    ]
                     cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
                 batch = self.augs(torch.cat(cutouts, dim=0))
                 if self.noise_fac:
-                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(
+                        0, self.noise_fac
+                    )
                     batch = batch + facs * torch.randn_like(batch)
                 return batch
 
@@ -563,15 +592,20 @@ def generate(
                 cutouts = []
                 for _ in range(self.cutn):
                     size = int(
-                        torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
+                        torch.rand([]) ** self.cut_pow * (max_size - min_size)
+                        + min_size
                     )
                     offsetx = torch.randint(0, sideX - size + 1, ())
                     offsety = torch.randint(0, sideY - size + 1, ())
-                    cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
+                    cutout = input[
+                        :, :, offsety : offsety + size, offsetx : offsetx + size
+                    ]
                     cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
                 batch = self.augs(torch.cat(cutouts, dim=0))
                 if self.noise_fac:
-                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(0, self.noise_fac)
+                    facs = batch.new_empty([self.cutn, 1, 1, 1]).uniform_(
+                        0, self.noise_fac
+                    )
                     batch = batch + facs * torch.randn_like(batch)
                 return batch
 
@@ -591,11 +625,14 @@ def generate(
                 cutouts = []
                 for _ in range(self.cutn):
                     size = int(
-                        torch.rand([]) ** self.cut_pow * (max_size - min_size) + min_size
+                        torch.rand([]) ** self.cut_pow * (max_size - min_size)
+                        + min_size
                     )
                     offsetx = torch.randint(0, sideX - size + 1, ())
                     offsety = torch.randint(0, sideY - size + 1, ())
-                    cutout = input[:, :, offsety : offsety + size, offsetx : offsetx + size]
+                    cutout = input[
+                        :, :, offsety : offsety + size, offsetx : offsetx + size
+                    ]
                     cutouts.append(resample(cutout, (self.cut_size, self.cut_size)))
                 return clamp_with_grad(torch.cat(cutouts, dim=0), 0, 1)
 
@@ -738,12 +775,8 @@ def generate(
     #     print("Using text prompts:", args.prompts)
     if filemusic:
         print("Using audio prompts:", filemusic)
-    # if args.image_prompts:
-    #     print("Using image prompts:", args.image_prompts)
     if init_image:
         print("Using initial image:", init_image)
-    # if args.noise_prompt_weights:
-    #     print("Noise prompt weights:", args.noise_prompt_weights)
 
     # Vector quantize
     def synth(z):
@@ -772,14 +805,6 @@ def generate(
 
         result = []
 
-        # if args.init_noise:
-        #     # result.append(F.mse_loss(z, z_orig) * args.init_noise / 2)
-        #     result.append(
-        #         F.mse_loss(z, torch.zeros_like(z_orig))
-        #         * ((1 / torch.tensor(i * 2 + 1)) * args.init_noise)
-        #         / 2
-        #     )
-
         for prompt in pMs:
             result.append(prompt(iii))
 
@@ -790,7 +815,7 @@ def generate(
             result.append(loss_trans)
 
         img = np.array(
-        out.mul(255).clamp(0, 255)[0].cpu().detach().numpy().astype(np.uint8)
+            out.mul(255).clamp(0, 255)[0].cpu().detach().numpy().astype(np.uint8)
         )[:, :, :]
         img = np.transpose(img, (1, 2, 0))
         imageio.imwrite(f"{steps_folder}/" + str(i) + ".png", np.array(img))
@@ -798,8 +823,7 @@ def generate(
 
     def train(i):
         opt.zero_grad(set_to_none=True)
-        with autocast():
-            lossAll = clac_loss(i)
+        lossAll = clac_loss(i)
 
         if i % display_freq == 0:
             checkin(i, lossAll)
@@ -822,25 +846,6 @@ def generate(
     iterations_num = []
     audio, sr = librosa.load(filemusic, sr=audio_sampling_freq)
     total_seconds = int(len(audio) // sr)
-    # Loading the lyrics
-    # if args.lyrics:
-    #     df = pd.read_csv(args.lyrics)
-    #     lyrics_cp = []
-    #     lyrics = []
-
-    #     for index, row in df.iterrows():
-    #         ts = row["timestamp"]
-    #         txt = str(row["text"])
-    #         ts = ts.split(":")
-    #         minute = int(ts[0])
-    #         sec = int(ts[1])
-    #         ts = sec + (60 * minute)
-    #         print(ts, txt)
-    #         lyrics_cp.append(ts)
-    #         lyrics.append(txt)
-
-    #     lyrics_num = len(lyrics)
-    #     print(f"number of lyrics blocks : {lyrics_num}")
 
     tempo, beats_raw = librosa.beat.beat_track(y=audio, sr=sr)
     spec = librosa.feature.melspectrogram(
@@ -921,8 +926,6 @@ def generate(
 
     # lyrics_index = 0
 
-    current_accum = 0  # Accumulating length of audios
-    prev_accum = 0
     # Looping to create segments of mp4 files
     for a in range(len(audio_length)):
         print("\n" + audiotimestamp_lst[a])
@@ -932,24 +935,7 @@ def generate(
             seed = torch.seed()
         torch.manual_seed(seed)
         pMs = []
-        # if args.lyrics:
-        #     if lyrics_index < lyrics_num:
-        #         lyric_timestamp = lyrics_cp[lyrics_index]
-        #         lyrics_text = lyrics[lyrics_index]
-        #         len = audio_length[a]
-        #         current_accum += len
-        #         if (lyric_timestamp >= prev_accum) and (lyric_timestamp <= current_accum):
-        #             text_turn = True
-        #             lyrics_index += 1
-        #         prev_accum = current_accum
 
-        # if text_turn:
-        #     # CLIP tokenize/encode
-        #     prompt = lyrics_text
-        #     txt, weight, stop = split_prompt(prompt)
-        #     embed = perceptor.encode_text(clip.tokenize(txt).to(device)).float()
-        #     pMs.append(Prompt(embed, weight, stop).to(device))
-        # else:
         # WavCLIP embedding
         audio = audio_lst[a]
         # print(audio.shape)
@@ -988,7 +974,6 @@ def generate(
         # Do it
         with tqdm() as pbar:
             while True:
-
                 # Training time
                 if i == 1 and a > 0:
                     pMs.pop()  # Getting rid of initial image prompt after first iteration
