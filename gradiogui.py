@@ -7,6 +7,8 @@ from torch.cuda import get_device_properties
 theme = gr.themes.Soft()
 default_lr = 0.1
 default_tr = 1
+default_it = 80
+default_fps = 25
 available_devices = ["cpu"] + [
     f"cuda:{str(i)}" for i in range(torch.cuda.device_count())
 ]
@@ -21,7 +23,7 @@ elif (
     default_image_size = 368  # <8GB VRAM
 
 
-def Generate_img(music_file, image_path, X, Y, devices, Tr, Lr):
+def Generate_img(music_file, image_path, X, Y, devices, Tr, Lr, It):
     output = api_picture.generate(
         filemusic=music_file.name,
         transimg=image_path,
@@ -29,11 +31,12 @@ def Generate_img(music_file, image_path, X, Y, devices, Tr, Lr):
         calc_device=devices,
         learningrate=Lr,
         transrate=Tr,
+        n_iteration=It,
     )
     return output
 
 
-def Generate_video(music_file, image_path, X, Y, devices, Tr, Lr):
+def Generate_video(music_file, image_path, X, Y, devices, Tr, Lr, Fps):
     output = api_video.generate(
         filemusic=music_file.name,
         transimg=image_path,
@@ -41,6 +44,7 @@ def Generate_video(music_file, image_path, X, Y, devices, Tr, Lr):
         calc_device=devices,
         learningrate=Lr,
         transrate=Tr,
+        iterations_per_second=Fps,
     )
     return output
 
@@ -52,8 +56,10 @@ with gr.Blocks(theme=theme) as demo:
         with gr.Blocks():
             with gr.Row():
                 with gr.Column():
-                    music2pic_music_input = gr.File(label="Music",)
-                    with gr.Accordion("Image Transfer (Optional)"): # 可折叠的组件
+                    music2pic_music_input = gr.File(
+                        label="Music",
+                    )
+                    with gr.Accordion("Image Transfer (Optional)"):  # 可折叠的组件
                         music2pic_image_input_path = gr.Image(type="filepath")
                         Tr_bar_for_image = gr.Slider(
                             0,
@@ -67,6 +73,15 @@ with gr.Blocks(theme=theme) as demo:
                         available_devices,
                         value=available_devices[-1],
                         label="Devices",
+                    )
+                    It_bar_for_image = gr.Slider(
+                        1,
+                        200,
+                        value=default_it,
+                        label="Number of iterations",
+                        info="Choose between 1 and 200",
+                        step=1,
+                        interactive=True,
                     )
                     Lr_bar_for_image = gr.Slider(
                         0.001,
@@ -102,8 +117,10 @@ with gr.Blocks(theme=theme) as demo:
         with gr.Blocks():
             with gr.Row():
                 with gr.Column():
-                    music2video_music_input = gr.File(label="Music",)
-                    with gr.Accordion("Image Transfer (Optional)"): # 可折叠的组件
+                    music2video_music_input = gr.File(
+                        label="Music",
+                    )
+                    with gr.Accordion("Image Transfer (Optional)"):  # 可折叠的组件
                         music2video_image_input_path = gr.Image(type="filepath")
                         Tr_bar_for_video = gr.Slider(
                             0,
@@ -117,6 +134,15 @@ with gr.Blocks(theme=theme) as demo:
                         available_devices,
                         value=available_devices[-1],
                         label="Devices",
+                    )
+                    Fps_bar_for_image = gr.Slider(
+                        1,
+                        120,
+                        value=default_fps,
+                        label="Fps of Video",
+                        info="Choose between 1 and 120",
+                        step=1,
+                        interactive=True,
                     )
                     Lr_bar_for_video = gr.Slider(
                         0.001,
@@ -161,11 +187,12 @@ with gr.Blocks(theme=theme) as demo:
             music2pic_devices,
             Tr_bar_for_image,
             Lr_bar_for_image,
+            It_bar_for_image,
         ],
         outputs=music2pic_output,
     )
     music2video_button.click(
-        Generate_img,
+        Generate_video,
         inputs=[
             music2video_music_input,
             music2video_image_input_path,
