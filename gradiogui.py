@@ -52,7 +52,7 @@ with gr.Blocks(theme=theme) as demo:
         with gr.Blocks():
             with gr.Row():
                 with gr.Column():
-                    music2pic_music_input = gr.File()
+                    music2pic_music_input = gr.File(label="Music",)
                     with gr.Accordion("Image Transfer (Optional)"): # 可折叠的组件
                         music2pic_image_input_path = gr.Image(type="filepath")
                         Tr_bar_for_image = gr.Slider(
@@ -102,7 +102,7 @@ with gr.Blocks(theme=theme) as demo:
         with gr.Blocks():
             with gr.Row():
                 with gr.Column():
-                    music2video_music_input = gr.File()
+                    music2video_music_input = gr.File(label="Music",)
                     with gr.Accordion("Image Transfer (Optional)"): # 可折叠的组件
                         music2video_image_input_path = gr.Image(type="filepath")
                         Tr_bar_for_video = gr.Slider(
