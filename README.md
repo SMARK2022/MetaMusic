@@ -1,5 +1,7 @@
 # MetaMusic 概述
 
+**(简体中文/[EN](README_en.md))**
+
 这是一个使用 Wav2CLIP 和 VQGAN-CLIP 从任何歌曲中生成人工智能音乐视频和图片的项目，我们大一立项项目组取名为 MetaMusic，寓意着通过音乐可以实现的多元化转换与含义表达。
 
 基本代码使用了[VQGAN-CLIP](https://github.com/nerdyrodent/VQGAN-CLIP)，音频的 CLIP 嵌入则使用了[Wav2CLIP](https://github.com/descriptinc/lyrebird-wav2clip)。经后来阅读文献中了解到，本项目思路与[Music2Video](https://github.com/joeljang/music2video)有着异曲同工之处，并且我们在其中做出了不少原创性的修改与优化。
