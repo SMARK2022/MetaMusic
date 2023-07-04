@@ -61,10 +61,7 @@ pip install ftfy regex tqdm omegaconf pytorch-lightning IPython kornia imageio i
 - 此外，还需要克隆所需的存储库：
 
 ```sh
-git clone 'https://github.com/nerdyrodent/VQGAN-CLIP'
-cd VQGAN-CLIP
-git clone 'https://github.com/openai/CLIP'
-git clone 'https://github.com/CompVis/taming-transformers'
+git clone 'https://github.com/SMARK2022/MetaMusic.git'
 ```
 
 - 由于版本兼容性问题，推荐使用包含版本号的`requirements.txt`文件进行安装。并且，需要使用 pip 从网上再次单独安装 `taming-transformers`
