@@ -36,6 +36,7 @@ def Generate_img(music_file, image_path, X, Y, devices, Tr, Lr, It):
         transrate=Tr,
         n_iteration=It,
     )
+    torch.cuda.empty_cache()
     return output
 
 
@@ -49,6 +50,7 @@ def Generate_video(music_file, image_path, X, Y, devices, Tr, Lr, Fps):
         transrate=Tr,
         iterations_per_second=Fps,
     )
+    torch.cuda.empty_cache()
     return output
 
 
