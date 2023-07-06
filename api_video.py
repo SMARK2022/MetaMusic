@@ -1112,4 +1112,6 @@ def generate(
     video = ffmpeg.input(tmp_ts_combine)
     audio = ffmpeg.input(filemusic)
     ffmpeg.concat(video, audio, v=1, a=1).output(video_output, strict="-2").run()
+    pMs = []
+    torch.cuda.empty_cache()
     return video_output

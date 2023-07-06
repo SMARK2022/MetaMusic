@@ -3,7 +3,7 @@
 
 import cv2
 import warnings
-from PIL import ImageFile, Image, PngImagePlugin, ImageChops
+from PIL import ImageFile, Image, PngImagePlugin
 import imageio
 import numpy as np
 import kornia.augmentation as K
@@ -826,6 +826,25 @@ def generate(
     # Loading the models & Getting total video length
     wav2clip_model = wav2clip.get_model()
     audio, sr = librosa.load(filemusic, sr=audio_sampling_freq)
+    total_seconds = int(len(audio) // sr)
+
+    tempo, beats_raw = librosa.beat.beat_track(y=audio, sr=sr)
+    spec = librosa.feature.melspectrogram(
+        y=audio, sr=sr, n_mels=128, fmax=8000, hop_length=512
+    )
+
+    beats_raw = beats_raw * 512  # indexed audio before sampling
+
+    audio_mean = np.array(
+        [0] * int((beats_raw[1:] - beats_raw[:-1]).mean() + 0.5)
+    ).astype("float32")
+    audio_length = [0] * int((beats_raw[1:] - beats_raw[:-1]).mean() + 0.5)
+    for i in range(len(beats_raw)):
+        try:
+            audio_mean += audio[beats_raw[i] : beats_raw[i] + audio_length]
+        except:
+            continue
+    audio_mean = audio_mean / len(beats_raw)
 
     # Randomly initializing seed in each video clip
     if seed == None:
@@ -854,6 +873,8 @@ def generate(
 
             # Ready to stop yet?
             if i == n_iteration:
+                pMs = []
+                torch.cuda.empty_cache()
                 return pic_name
             i += 1
             pbar.update()

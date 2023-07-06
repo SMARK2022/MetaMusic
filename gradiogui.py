@@ -3,9 +3,10 @@ import api_picture
 import api_video
 import torch
 from torch.cuda import get_device_properties
+import gc
 
 theme = gr.themes.Soft()
-default_lr = 0.2
+default_lr = 0.15
 default_tr = 1
 default_it = 60
 default_fps = 25
@@ -37,6 +38,7 @@ def Generate_img(music_file, image_path, X, Y, devices, Tr, Lr, It):
         n_iteration=It,
     )
     torch.cuda.empty_cache()
+    gc.collect()
     return output
 
 
@@ -51,6 +53,7 @@ def Generate_video(music_file, image_path, X, Y, devices, Tr, Lr, Fps):
         iterations_per_second=Fps,
     )
     torch.cuda.empty_cache()
+    gc.collect()
     return output
 
 
